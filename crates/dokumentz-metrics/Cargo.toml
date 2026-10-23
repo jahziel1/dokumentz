@@ -1,0 +1,11 @@
+[package]
+name = "dokumentz-metrics"
+description = "Instrumentación de Dokumentz (FR-012): Recorder, Span, Histogram y esquema de resultados"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]

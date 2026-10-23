@@ -1,0 +1,11 @@
+[package]
+name = "xlsx-diff"
+description = "Comparación celda a celda de archivos .xlsx con un lector independiente"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]

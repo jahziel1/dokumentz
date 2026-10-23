@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dokumentz - spike de Tauri</title>
+  </head>
+  <body>
+    <header id="bar">
+      <strong>Spike de Tauri</strong>
+      <button id="run-ipc" type="button">Medir IPC (T009)</button>
+      <button id="run-canvas" type="button">Medir canvas (T010)</button>
+      <span id="status">listo</span>
+    </header>
+    <main id="stage"></main>
+    <pre id="log"></pre>
+    <script type="module" src="/src/spike-main.ts"></script>
+  </body>
+</html>

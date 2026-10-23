@@ -467,16 +467,165 @@ Este documento reúne las decisiones técnicas ya tomadas por el usuario o deriv
 | Patrón del textarea oculto en Google Docs y ONLYOFFICE | Sin fuente primaria (D-07); no condiciona la decisión |
 | Disponibilidad de EditContext en WebView2 | No verificada (D-07) |
 | Términos vigentes en 2026 de la licencia de la cinta; sentencia final y apelaciones de *Microsoft v. Corel* | No verificados (D-14) |
-| Costo real del recálculo completo de IronCalc en cada edición | El comportamiento (reevalúa todo el libro) está verificado en el código de v0.9.1; su costo se mide en M-05 (D-02) |
+| Costo real del recálculo completo de IronCalc en cada edición | Medido en la fase 0 (E02/T006, 0.9.1, release): ≈ 37–50 ms por edición con 100 000×20 y 10 000 fórmulas; casi todo es el recorrido de las 2 M celdas (≈ 33–37 ms sin ninguna fórmula; 10 000 fórmulas sin datos: ≈ 1,2–1,5 ms). Cuánto pesa en A2 con el núcleo completo lo mide M-05 (D-02). Ver «Resultados de los spikes de la fase 0» |
 | Cuántas de las 497 funciones de IronCalc calculan igual que Excel | Se mide en SC-007 / M-09(d) (D-16, D-17) |
 | Valor de `Application` que escriben Apache POI y LibreOffice, y si todo archivo de A4 trae `docProps/app.xml` | Sin verificar; se confirma al preparar A4. Sin `app.xml` el archivo se informa aparte (D-17) |
 | Archivos generados por bibliotecas que escriben «Microsoft Excel» en `Application` | Limitación verificada con `rust_xlsxwriter` 0.101.0; falta decidir si se añade una segunda señal (D-17) |
 | Estructura interna de Office y de LibreOffice (motores por aplicación sobre una base común) | Hecho aportado por el dueño; sin fuente primaria citada (D-16) |
 | Lista de funciones volátiles de Excel según Microsoft | Fuente secundaria (Exceljet); no se encontró la página de Microsoft (D-17) |
-| Licencias de los crates de Zed de los que depende `gpui` | Directas: todas Apache-2.0 (verificado 2026-10-22). Transitivas: auditoría con `cargo deny` en el commit fijado (D-15) |
+| Licencias de los crates de Zed de los que depende `gpui` | Directas: todas Apache-2.0 (verificado 2026-10-22). Transitivas: auditadas con `cargo deny` en el commit fijado (CP-0). Sin GPL, LGPL ni AGPL, pero aparecen MPL-2.0 (`cbindgen`, `dwrote`, `option-ext`) y CC0-1.0 (`tiny-keccak`), y Tauri añade MPL-2.0 (`cssparser`, `selectors`, `dtoa-short`, `cssparser-macros`). Pendiente de decisión del dueño (ver «Licencias de la clausura de las interfaces») (D-15) |
+| Coste de `runtime_shaders` de GPUI al arrancar (falta el «Metal Toolchain» de Xcode 27) | Sin medir; afecta a M-01 de GPUI. Se resuelve instalando el componente (decisión del dueño) o midiendo ambos casos (E03) |
 | Calidad del IME de GPUI en Windows y Linux | Se prueba en SC-004 (D-07) |
 | Otros motores de hojas en Rust y otros marcos nativos (iced, etc.) | No evaluados (D-02, D-03) |
 | ONLYOFFICE en Windows y Linux | No inspeccionado (D-12) |
+| Qué `locale` usa el idioma de fórmulas `es` (España: `;` y decimal `,`; México: `,` y decimal `.`) | **Resuelto en CP-0 (2026-10-22): sigue a la región del sistema**, como Excel (plan §5.7). IronCalc las separa: el idioma solo decide los nombres de función (E02/T006, 0.9.1) |
+| Si la geometría de IronCalc (fila 25, columna 90 «píxeles de IronCalc») hay que escalarla al comparar con Excel/ONLYOFFICE (fila 20, columna 64 px a 96 ppp) | Pendiente; afecta cuántas filas caben por pantalla en SC-001/SC-002 (E02/T006) |
+| Si la estrategia (A) del reintento de idioma (§5.7 del plan) cumple «≤ 2× una edición» sobre A2 | Medido en un libro sintético: ≈ 2,9× ingenua y ≈ 1,9× con `pause_evaluation`; lo confirma T024 sobre A2 (E02/T006) |
+| Defecto de IronCalc 0.9.1: una fórmula con error de análisis contamina a otra con el mismo texto interno | Reproducido en una prueba (`spike_api.rs`); no se ha avisado al proyecto; si una versión posterior lo corrige, la prueba falla y se revisa (E02/T006) |
+
+## Resultados de los spikes de la fase 0
+
+Spikes de la fase 0 de la PoC (`tasks.md` E02–E04), corridos el 2026-10-22 en el Mac del proyecto (Apple M1, 16 GB, macOS 26.6.2, Rust 1.99.0) y siempre en `--release`. Los JSON de desarrollo están en `results/dev/`. Mientras corrían estos spikes había otros dos agentes compilando GPUI y Tauri en la misma máquina, así que los tiempos tienen un ruido de ±15 %: se dan como rango o como mediana de varias corridas.
+
+### E02 — IronCalc 0.9.1
+
+Pruebas: `crates/dokumentz-sheet/tests/spike_load.rs` (T005) y `spike_api.rs` (T006). El código fuente que se leyó para explicar cada resultado está en el registro de Cargo (`ironcalc-0.9.1/` e `ironcalc_base-0.9.1/`).
+
+#### T005 — Carga de 100 000×20 (compuerta CG-1: **dentro de los umbrales**)
+
+Libro sintético de `rust_xlsxwriter`: 2 000 000 celdas (números, decimales con formato, textos únicos, fechas y moneda con relleno), una hoja, 9,83 MB. Cada medición corre en un **proceso nuevo** (mediana de 3), para que la memoria sea la del modelo y no la del generador. Memoria: `ps -o rss=` y `footprint -p <pid> -j` (sin sudo).
+
+| Medida | Resultado (mediana de 3) | Umbral de aviso de CG-1 |
+|---|---|---|
+| Abrir (`load_from_xlsx` + `UserModel::from_model`) | **1 314 ms** (corridas: 1 236 / 1 314 / 1 598); `from_model` cuesta 0,01 ms | > 10 000 ms |
+| RSS antes de cargar / después de cargar | 7,4 MB / **449 MB** (pico muestreado durante la carga: 439 MB) | > 2 048 MB |
+| `footprint` (memoria física facturable) tras cargar | **329 MB** | > 2 048 MB |
+| Guardar (`save_to_xlsx`) | 1 545 ms (9,67 MB) | sin umbral (M-07) |
+| Reabrir lo guardado | 1 160 ms; RSS con los dos modelos a la vez: 798 MB | sin umbral |
+| Ida y vuelta | Una muestra de 180 celdas formateadas es idéntica antes y después de guardar y reabrir | |
+
+Lectura: abrir tarda ≈ 7,6 veces menos que el umbral y la memoria es ≈ 4,6 veces menor. Para este tamaño de archivo sintético R-05 no se materializa. Límites del resultado: es un archivo sintético (una hoja, sin fórmulas, textos de longitud media); A1/A2 reales pueden pesar distinto. El `.xlsx` guardado pesa 1,6 % menos que el original (9,67 frente a 9,83 MB).
+
+#### T006 — Los 12 hallazgos de la API (todos con aserción en `spike_api.rs`)
+
+| N.º | Hallazgo | Resultado | ¿Cambia el diseño del plan? |
+|---|---|---|---|
+| 1 | Filas y columnas base 1 | Hoja base 0; fila y columna base 1: A1 = `(0, 1, 1)`. Fila 0/columna 0 dan error; límites 1 048 576 × 16 384 inclusive; la celda activa inicial es `(0, 1, 1)` | No (confirma §5.1) |
+| 2 | Unidad y valor por defecto de `get_row_height`/`get_column_width` | Defecto 25,0 y 90,0. Los setters y getters usan la misma unidad. Al leer un `.xlsx`: ancho = caracteres × 9 y alto = puntos × 1,5625. Oculto = 0,0. Son «píxeles de IronCalc», no los de Excel (64×20 por defecto) | Sí, §5.1: se precisa la unidad y se avisa de que no equivale a Excel |
+| 3 | `key` de `on_expand_selected_range` | Valores `KeyboardEvent.key` del DOM: `"ArrowRight"`, `"ArrowLeft"`, `"ArrowUp"`, `"ArrowDown"`. Cualquier otra cadena se ignora **sin error**. `range` = `[fila_ini, col_ini, fila_fin, col_fin]` normalizado y el ancla no se mueve | No (se anota en §5.6) |
+| 4 | Campos de `SelectedView` | `sheet, row, column, range, top_row, left_column`, todos públicos. No expone el «foco» (se deduce de `range` y el ancla). El tipo **no se puede nombrar** fuera de IronCalc (`pub use` bajo `#[cfg(test)]`) y no es `Debug` ni `PartialEq`: se usa por inferencia | No (se anota en §5.6) |
+| 5 | Idioma de fórmulas | Con `es`, `=TRUE()` da `#¿NOMBRE?` (en `en`, `#NAME?`) y `=SUM(1,2)` también: el texto se conserva con el nombre en minúsculas. Lo guardado está en inglés y se muestra en el idioma activo. `set_language` no evalúa y no entra en el historial (con la evaluación pausada, una fórmula sin evaluar se ve `#ERROR!` y sigue así tras cambiar de idioma). El reintento con `undo` deja **una** entrada de historial. BUSCARV, BUSCARX, SI.ERROR, CONTAR.SI y SI existen en español. **Además: el `locale` decide los separadores** (ver abajo) | **Sí**: `OpenOptions` gana `locale` y se corrige «`locale_id` igual al idioma» (§5.2, §5.7). Decisión del dueño: qué locale usa `Lang::Es` |
+| 6 | Coste de `evaluate()` (100 000×20, 10 000 fórmulas que dependen de U1) | `evaluate()` ≈ **37 ms** (mediana de 3: 36,6 / 38,9 / 49,9 en tres corridas); una edición de U1 ≈ 39 ms; editar una celda sin relación ≈ 39 ms. El mismo libro **sin fórmulas**: ≈ 33–37 ms. Las 10 000 fórmulas **sin datos**: ≈ 1,2–1,5 ms. Primera evaluación tras abrir: 45–53 ms | No cambia el diseño, pero R-04 baja: el coste depende del número de celdas (≈ 18 ns por celda), no del número de fórmulas. Para M-05 en A2 se espera del orden de 40 ms por edición |
+| 7 | `set_user_input` evalúa todo; `pause_evaluation` lo evita | Confirmado en 0.9.1: editar D5 recalcula una fórmula volátil (`=RAND()`) que no tiene relación con D5. Con `pause_evaluation()` la edición cuesta 0,0 ms y los valores quedan viejos; `resume_evaluation()` **no** evalúa; `evaluate()` sí; `undo` también evalúa | No (confirma R-04, opción a) |
+| 8 | `resolve_color` | Devuelve `#RRGGBB` (mayúsculas), también para colores de tema con su tinte. **Sin color devuelve la cadena vacía** (hay que tratarla como «sin relleno»; el color de fuente por defecto es el tema 1 = `#000000`) | No (se anota en §5.4 al hacer T016) |
+| 9 | `get_model().workbook` público | Sí: `workbook.worksheets[i].rows` (`Row { r, height en puntos, hidden, … }`), `.cols` (`Col { min, max, width en caracteres, custom_width, hidden, … }`) y `dimension()` son públicos. `get_row_height` es **lineal** en el número de entradas `Row`: 15 µs por llamada con 100 000 entradas (≈ 1,5 s para construir la geometría fila por fila); leer `rows` entero cuesta 0,14 ms | **Sí, §5.3**: la geometría se construye leyendo `rows`/`cols`, no llamando a `get_row_height` |
+| 10 | La carga informa partes no soportadas | **No.** `load_from_xlsx` devuelve `Result<Model, XlsxError>` sin canal de avisos; un archivo con gráfico, imagen, validación de datos y notas carga en `Ok`. Al guardar se pierden gráfico, dibujo, imagen, validación de datos y **notas** (se leen al modelo pero no se escriben). Lo que sí modela (se lee al modelo): celdas combinadas y nombres definidos | **Sí, §5.9 y fila 8 del plan**: detección propia por las entradas del paquete (prototipo en la prueba) |
+| 11 | `paste_csv_string` con comillas y saltos de línea | Acepta campos entre comillas con tabuladores, saltos de línea y comillas duplicadas, y `\r\n`; todo es **una** entrada de historial; `=1+1` se evalúa como al teclear. **Pero** descarta **en silencio** las filas con distinto número de campos que la primera (las siguientes suben un lugar) y los campos vacíos finales **borran** las celdas de la derecha | **Sí, §5.8**: el núcleo rellena a rectángulo y recorta columnas vacías finales; `\r\n` ya no hace falta normalizarlo |
+| 12 | `Clipboard.csv` | Inaccesible: el campo es `pub(crate)` y el tipo no se exporta. Solo se alcanza serializando con serde, y ese texto lleva `trim()` (pierde tabuladores finales): no sirve como TSV | No (confirma §5.8: el núcleo arma su propio TSV) |
+
+**Locale frente a idioma (hallazgo 5, el de más consecuencias).**
+
+| `locale` / idioma | Argumentos | Decimal | `=SUMA(1;2)` | `=SUMA(1,2)` | `1,5` | `1.5` |
+|---|---|---|---|---|---|---|
+| `es` / `es` (España) | `;` | `,` | 3 | 1,2 (¡`SUMA(1.2)`!) | número | texto |
+| `en` / `es` (México) | `,` | `.` | `#ERROR!` | 3 | texto | número |
+
+Los `.xlsx` no se ven afectados (guardan la fórmula en inglés). Quien teclea con el convenio mexicano necesita `locale` `en` con idioma `es`; con `locale` `es` obtendría resultados silenciosamente equivocados al teclear `=SUMA(A1,B1)`.
+
+**Hallazgos extra (con prueba, `x01`–`x04` y `h05_bug…`).**
+- La carga **no evalúa**: tras abrir se ve el valor guardado en el archivo (7 en una fórmula cuyo resultado real es 5) hasta llamar a `evaluate()`. `tools/compat-check` debe evaluar antes de comparar (§5.9).
+- `save_to_xlsx` se niega a escribir sobre un archivo que ya existe y **entra en pánico** si la carpeta no existe (`File::create(..).unwrap()`). El guardado atómico usa `save_xlsx_to_writer` con un `File` propio y `rename` (§5.2, §5.9).
+- `UserModel<'static>` es `Send + Sync` (comprobado al compilar).
+- El desplazamiento de `UserModel` es por celda: solo guarda la celda superior izquierda visible; `get_scroll_x/y` se deducen sumando tamaños en O(n). RePág/AvPág dependen de `set_window_height` (alto 500 y filas de 25 dan páginas de 20 filas). Adelanta la respuesta a la verificación pendiente de T022.
+- Coste del reintento de idioma de §5.7 sobre este libro (≈ 38 ms por evaluación): estrategia (A) ingenua ≈ 114 ms (2,9×); (A) con `pause_evaluation` ≈ 73 ms (1,9×); lo confirma T024.
+- **Defecto de 0.9.1:** una fórmula que no se puede analizar (aquí, con locale `es`, `=IF(1>0,2,3)`) se guarda con su texto en inglés; otra fórmula válida que se teclee después con el mismo texto interno (`=SI(1>0;2;3)`) reutiliza la entrada fallida y se ve como `=IF(1>0,2,3)` con `#ERROR!`. El error de nombre desconocido no lo provoca (su texto queda en minúsculas). No se ha avisado al proyecto.
+
+**Dependencias de prueba añadidas** a `crates/dokumentz-sheet` (solo `[dev-dependencies]`): `rust_xlsxwriter` (ya fijada en el espacio de trabajo), `tempfile` 3 y `zip` 9.0.5 (la misma versión que ya trae `ironcalc`; sirve para listar las partes del paquete). `no_ui_deps` sigue en verde.
+
+### E03 — GPUI
+
+Código: `apps/gpui/src/{main,spike_grid,text_input}.rs`. `text_input.rs` está adaptado de `crates/gpui/examples/input.rs` de Zed (Apache-2.0, procedencia y cambios en su cabecera).
+
+- **Commit fijado:** `9e84b066b55bc3609a30dd965075c12255b38b45` de `zed-industries/zed` (cabeza de `main` el 2026-10-22). Compiló tal cual en macOS, sin cambiar de commit. `gpui` va con sus características por defecto y `gpui_platform` con `font-kit`, `wayland`, `x11` y `runtime_shaders`.
+- **Parches de Zed replicados** en `[patch.crates-io]`, con los mismos `rev`: `async-task`, `calloop` y `khronos-egl`. Los demás de Zed (`cpal`, `tree-sitter-language`, `async-process`, `windows-capture`, `livekit`, `libwebrtc`, `webrtc-sys`, `notify`, `notify-types`, `scratch`) no entran en la clausura activa de `gpui`.
+- **`runtime_shaders`:** fue necesario porque el componente «Metal Toolchain» de Xcode 27 está `uninstalled` en este Mac. `xcrun -f metal` responde, pero el `build.rs` de `gpui_apple` falla con «cannot execute tool 'metal'». Con la característica, los shaders se compilan al arrancar. Ese coste no se ha medido y puede pesar en M-01.
+- **R-10 no se activa:** GPUI y Tauri resuelven en un solo `Cargo.lock` (`cargo build -p dokumentz-app-gpui -p dokumentz-app-tauri` pasa).
+- **Compilación release limpia:** 160 s en el M1 (con otros agentes compilando a la vez). La clausura tiene unas 660 dependencias normales en macOS. El binario pesa 7,5 MB.
+- **Primer arranque:** ventana de 1200×820 pt (escala 2), refresco declarado de 16,67 ms y un `Element` propio con 2 000 `paint_quad` y 500 `ShapedLine`. Valores **indicativos, no medición**: unos 61 cuadros/s con `--animate`, `prepaint` medio de 0,4–0,5 ms (`shape_line` de 500 celdas en cada cuadro) y `paint` medio de 2,8–3,4 ms (máximo de 5,3 a 5,9 ms). Cabe en el presupuesto de ≤ 6 ms de §7.2 del plan, con poca holgura; lo mide T058.
+- **API comprobada al compilar:**
+  - `Element` exige `id()` y `source_location()`.
+  - Recorte: `ContentMask { bounds }` con `window.with_content_mask(Some(..), f)`.
+  - `quad(bounds, radii, bg, border_widths, border_color, BorderStyle)`.
+  - `ShapedLine::paint(origin, line_height, TextAlign, None, window, cx)`.
+  - `KeyBinding::new` recibe `&'static str`.
+  - `App::on_window_closed` recibe `(cx, WindowId)`.
+  - `App::spawn` toma `async move |cx: &mut AsyncApp|`.
+  - `window.request_animation_frame()` existe.
+- **T008 (IME, manual):** pendiente del dueño. El cuadro de texto muestra el contenido, la selección, el rango marcado, las últimas teclas y la distribución de teclado.
+
+### E04 — Tauri y CI mínima
+
+Código: `apps/tauri/` (Vite + TypeScript sin framework; `src-tauri` con `tauri` 2.12.5). Banderas `--spike ipc --exit` y `--spike canvas --exit` para correr cada medición sin intervención. CI en `.github/workflows/ci.yml`.
+
+#### T009 — Puente (compuerta CG-2: **pasa**)
+
+1 000 idas y vueltas por tamaño, tras 100 de calentamiento; ejecución mediana de 3, en release, sobre WKWebView. Las respuestas llegaron como `ArrayBuffer` íntegro en todos los casos.
+
+| Tamaño | `invoke` + `tauri::ipc::Response`: p50 / p95 / p99 (media) | `Channel<InvokeResponseBody>`: p50 / p95 / p99 (media) |
+|---|---|---|
+| 16 KB | 0 / 1 / 1 ms (0,41 ms) | 1 / 1 / 1 ms (0,61 ms) |
+| 128 KB | 0 / **1** / 1 ms (0,48 ms) | 1 / 1 / 1 ms (0,71 ms) |
+| 512 KB | 1 / 1 / 1 ms (0,79 ms) | 1 / 2 / 2 ms (1,08 ms) |
+
+- CG-2 exige p95 ≤ 10 ms con 128 KB y da ≈ 1 ms. No hace falta rediseñar el reparto de bloques (R-01).
+- **`performance.now()` en WKWebView tiene resolución de 1 ms** (`crossOriginIsolated` es falso, y las cabeceras COOP/COEP en `app.security.headers` no lo cambian). Los percentiles son escalones de 1 ms. Para tiempos por debajo de 1 ms se usa la media de un lote (`mean_from_total_ms`).
+- **`Channel` con bytes crudos:** cuesta 0,2–0,3 ms más que `invoke`. En 2.12.5, los `Raw` de 1 KB o más van a una cola y Rust ejecuta un `eval` que lanza un segundo `invoke('plugin:__TAURI_CHANNEL__|fetch')` (`MAX_RAW_DIRECT_EXECUTE_THRESHOLD = 1024`, `ipc/channel.rs`).
+- **Un `Channel` de JS por invocación.** Pasar el mismo objeto `Channel` como argumento a dos invocaciones deja la segunda sin entregar (comprobado: se colgó). Esto no contradice §6.2 del plan: allí el canal `events` se entrega **una vez** y Rust lo guarda para enviar muchas veces. Lo que no se puede es reutilizarlo como argumento.
+- **ACL mínima:** con `AppManifest::commands([...])` en `build.rs`, `capabilities/default.json` lista solo los cuatro comandos propios, sin plugins ni `core:default`, y todo funciona. `plugin:__TAURI_CHANNEL__|fetch` está exento de la ACL en el código de 2.12.5.
+- **CSP:** con `default-src 'self'; connect-src ipc: http://ipc.localhost` no hubo violaciones ni caída a `postMessage`; el spike captura los avisos de consola y los eventos `securitypolicyviolation`. Adelanta parte de T051; falta repetirlo con la app real.
+
+#### T010 — Canvas 2D (señal de WebGL: **en el límite**)
+
+2 800 celdas por cuadro (50×56 de 28×14 px), DPR 2, lienzo de 1400×784 CSS, 10 s de desplazamiento sintético. Cada cuadro pinta relleno por color, un trazo de cuadrícula y texto con caché de `measureText`; usa `clip()` en ≈ 2 % de las celdas y pinta `####` en los números que no caben.
+
+| Medida | p50 / p95 / p99 | Otros |
+|---|---|---|
+| Pintado (tiempo de JS) | 4 / **6** / 6 ms | media 4,43 ms |
+| Intervalo entre `requestAnimationFrame` | 17 / 17 / 18 ms | 60,1 fps; 0 cuadros perdidos |
+| Pintado con lectura forzada de un píxel (5 s; incluye la rasterización pendiente) | p95 8 ms | media 6,13 ms |
+
+El p95 de pintado en JS llega a 6 ms sin superarlo. Con la rasterización incluida pasa de 6 ms en las 3 ejecuciones (7–8 ms). Se anota como señal para D-09 y no se implementa WebGL; se revisa con M-03. Medición hecha con el Mac cargado (carga media 6–9).
+
+#### T011 — CI mínima
+
+- **Trabajos:** `core` (fmt, clippy, pruebas del núcleo y de las herramientas, `no_ui_deps` y `cargo deny`) y `apps` (Vitest, `tauri build --no-bundle`, pruebas de `dokumentz-app-tauri` y build release de `dokumentz-app-gpui`), ambos en `ubuntu-24.04`, `windows-2025` y `macos-26`.
+- **Configuración:** `contents: read`, `concurrency` con cancelación y sin secretos. `actionlint` sale limpio.
+- **Acciones fijadas por SHA:**
+  - `actions/checkout` v7.0.1 (`3d3c42e5…`)
+  - `actions/setup-node` v7.1.0 (`949feb24…`)
+  - `Swatinem/rust-cache` v2.9.3 (`d1527c8f…`)
+  - `taiki-e/install-action` v2.87.30 (`a4d3f3f7…`, instala `cargo-deny@0.20.2`)
+- **Pendiente:** no hay ejecución remota todavía (R-14). Los trabajos `roundtrip` y `judge-libreoffice` llegan con sus etapas.
+- **Versiones resueltas:**
+  - Rust: tauri 2.12.5, tauri-build 2.7.4 (su numeración no sigue a `tauri`; la última 2.x es 2.7) y wry 0.57.0.
+  - Frontend: `@tauri-apps/cli` y `@tauri-apps/api` 2.12.4, vite 8.3.5, typescript 7.0.2 y vitest 5.0.5.
+
+### Licencias de la clausura de las interfaces (CP-0)
+
+`cargo deny check licenses bans sources` falla tras E03 y E04; `deny.toml` no se tocó. No aparece **ninguna** licencia GPL, LGPL ni AGPL.
+
+| Crate | Licencia | Entra por | ¿Va en el binario? |
+|---|---|---|---|
+| `cssparser` 0.37.0, `selectors` 0.38.0, `dtoa-short` 0.3.5 | MPL-2.0 | `tauri` → `wry` → `dom_query` (también `tauri-utils`) | Sí (Tauri, las tres plataformas) |
+| `cssparser-macros` 0.7.1 | MPL-2.0 | `cssparser` (macro de procedimiento) | No (solo al compilar) |
+| `option-ext` 0.2.0 | MPL-2.0 | `dirs` → `dirs-sys` (Tauri, `wry` y `zed-font-kit`) | Sí |
+| `cbindgen` 0.28.0 | MPL-2.0 | `gpui_apple` (dependencia de compilación) | No (solo al compilar, macOS) |
+| `dwrote` 0.11.5 | MPL-2.0 | `zed-font-kit` (GPUI en Windows) | Sí, en Windows |
+| `tiny-keccak` 2.0.2 | CC0-1.0 | `zed-xim` → `ahash` → `const-random` (GPUI en Linux X11) | Sí, en Linux |
+
+Además, `sources` rechaza 13 entradas git de `github.com/gfx-rs/wgpu` (`wgpu*`, `naga*`), que entran por `gpui_wgpu` (Linux y web) y están fuera de `allow-org`.
+
+**Decisión del dueño (CP-0, 2026-10-22): excepción por crate.** `deny.toml` permite MPL-2.0 y CC0-1.0 **solo** para los 8 crates de la tabla (`[licenses] exceptions`) y el repositorio git `https://github.com/gfx-rs/wgpu` (`allow-git`, no la organización). Un crate MPL nuevo vuelve a fallar y exige revisión. Con eso, `cargo deny check licenses bans sources` pasa. Las demás decisiones de CP-0 fueron: el `locale` de las fórmulas sigue a la región del sistema (plan §5.7); el dueño instala el «Metal Toolchain» de Xcode y después se quita `runtime_shaders` en local; y se hace commit y push de la fase 0 a `main`.
 
 ## Lista de fuentes
 

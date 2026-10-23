@@ -1,0 +1,142 @@
+# CI mínima de Dokumentz (plan.md §10, T011). No mide rendimiento: solo compila y prueba.
+#
+# Ejecutores (plan.md §10): ubuntu-24.04, windows-2025, macos-26.
+# Las acciones están fijadas por SHA de commit; la versión va en el comentario.
+# Sin secretos y con permisos de solo lectura.
+#
+# Estado: esta ejecución aún no se ha hecho en remoto (R-14 abierto hasta el primer push, que
+# el dueño confirma en CP-0).
+#
+# Pendientes conocidos: los trabajos `roundtrip` (SC-005) y `judge-libreoffice` del plan se
+# añaden con sus etapas; la lista de paquetes de GPUI en Linux se recorta en T081; las pruebas
+# E2E y el humo de ventana de ambas interfaces llegan en fases posteriores.
+#
+# Licencias (CP-0, 2026-10-22): las MPL-2.0 y CC0-1.0 de la clausura de Tauri y GPUI y el
+# repositorio git de `wgpu` están permitidos solo como excepciones con nombre en `deny.toml`.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  RUST_BACKTRACE: "1"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # SC-006: núcleo y herramientas, sin las dos interfaces.
+  core:
+    name: core (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-26]
+    steps:
+      - name: Código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Rust 1.99.0 (rust-toolchain.toml)
+        run: rustup toolchain install --profile minimal
+
+      - name: Caché de cargo y target
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      - name: cargo fmt --check (solo Linux)
+        if: runner.os == 'Linux'
+        run: cargo fmt --all --check
+
+      - name: cargo clippy (núcleo y herramientas)
+        run: cargo clippy --workspace --exclude dokumentz-app-tauri --exclude dokumentz-app-gpui -- -D warnings
+
+      - name: cargo test (núcleo y herramientas)
+        run: cargo test -p dokumentz-sheet -p dokumentz-metrics -p dokumentz-script -p testdata-gen -p xlsx-diff -p compat-check -p bench-runner -p bench-report
+
+      - name: El núcleo no depende de ninguna interfaz (solo Linux)
+        if: runner.os == 'Linux'
+        run: cargo test -p dokumentz-sheet --test no_ui_deps
+
+      - name: Instalar cargo-deny (solo Linux)
+        if: runner.os == 'Linux'
+        uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
+        with:
+          tool: cargo-deny@0.20.2
+
+      - name: cargo deny check licenses bans sources (solo Linux)
+        if: runner.os == 'Linux'
+        run: cargo deny check licenses bans sources
+
+  # Las dos interfaces candidatas compilan en los tres sistemas (R-03, R-14).
+  apps:
+    name: apps (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-26]
+    steps:
+      - name: Código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Lista oficial de Tauri (v2.tauri.app/start/prerequisites/) más la de GPUI de plan.md §10.
+      - name: Paquetes del sistema (solo Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev \
+            libayatana-appindicator3-dev librsvg2-dev xvfb \
+            gcc g++ libfontconfig-dev libwayland-dev libx11-xcb-dev libxkbcommon-x11-dev \
+            libvulkan1 libzstd-dev cmake clang lld make mesa-vulkan-drivers
+
+      - name: Rust 1.99.0 (rust-toolchain.toml)
+        run: rustup toolchain install --profile minimal
+
+      - name: Caché de cargo y target
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      - name: Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/tauri/package-lock.json
+
+      - name: Tauri, dependencias del frontend
+        working-directory: apps/tauri
+        run: npm ci
+
+      - name: Tauri, pruebas del frontend (Vitest)
+        working-directory: apps/tauri
+        run: npm test
+
+      - name: Tauri, compilar release (frontend + dokumentz-app-tauri)
+        working-directory: apps/tauri
+        run: npm run tauri build -- --no-bundle
+
+      - name: Tauri, pruebas de Rust
+        run: cargo test -p dokumentz-app-tauri
+
+      - name: GPUI, compilar release (dokumentz-app-gpui)
+        run: cargo build -p dokumentz-app-gpui --release

@@ -1,0 +1,21 @@
+[package]
+name = "dokumentz-sheet"
+description = "Motor de la hoja de cálculo de Dokumentz (sin dependencias de interfaz)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+ironcalc.workspace = true
+ironcalc_base.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+# Solo para los spikes de la fase 0 (E02): generan los `.xlsx` de prueba y
+# inspeccionan las partes del paquete. No entran en la clausura normal del crate.
+rust_xlsxwriter.workspace = true
+tempfile = "3"
+zip = { version = "9.0.5", default-features = false, features = ["deflate"] }

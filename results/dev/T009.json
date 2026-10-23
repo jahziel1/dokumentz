@@ -1,0 +1,157 @@
+{
+  "spike": "ipc",
+  "task": "T009",
+  "ok": true,
+  "iterations": 1000,
+  "warmup": 100,
+  "echo": [
+    {
+      "size_bytes": 16384,
+      "n": 1000,
+      "min_ms": 0,
+      "p50_ms": 0,
+      "p95_ms": 1,
+      "p99_ms": 1,
+      "max_ms": 1,
+      "mean_ms": 0.406,
+      "total_ms": 407,
+      "mean_from_total_ms": 0.407,
+      "arraybuffer_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "size_bytes": 131072,
+      "n": 1000,
+      "min_ms": 0,
+      "p50_ms": 0,
+      "p95_ms": 1,
+      "p99_ms": 1,
+      "max_ms": 1,
+      "mean_ms": 0.48,
+      "total_ms": 481,
+      "mean_from_total_ms": 0.481,
+      "arraybuffer_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "size_bytes": 524288,
+      "n": 1000,
+      "min_ms": 0,
+      "p50_ms": 1,
+      "p95_ms": 1,
+      "p99_ms": 1,
+      "max_ms": 2,
+      "mean_ms": 0.785,
+      "total_ms": 786,
+      "mean_from_total_ms": 0.786,
+      "arraybuffer_ok": true,
+      "bytes_ok": true
+    }
+  ],
+  "channel": [
+    {
+      "size_bytes": 16384,
+      "n": 1000,
+      "min_ms": 0,
+      "p50_ms": 1,
+      "p95_ms": 1,
+      "p99_ms": 1,
+      "max_ms": 3,
+      "mean_ms": 0.604,
+      "total_ms": 607,
+      "mean_from_total_ms": 0.607,
+      "arraybuffer_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "size_bytes": 131072,
+      "n": 1000,
+      "min_ms": 0,
+      "p50_ms": 1,
+      "p95_ms": 1,
+      "p99_ms": 1,
+      "max_ms": 3,
+      "mean_ms": 0.706,
+      "total_ms": 711,
+      "mean_from_total_ms": 0.711,
+      "arraybuffer_ok": true,
+      "bytes_ok": true
+    },
+    {
+      "size_bytes": 524288,
+      "n": 1000,
+      "min_ms": 0,
+      "p50_ms": 1,
+      "p95_ms": 2,
+      "p99_ms": 2,
+      "max_ms": 4,
+      "mean_ms": 1.078,
+      "total_ms": 1081,
+      "mean_from_total_ms": 1.081,
+      "arraybuffer_ok": true,
+      "bytes_ok": true
+    }
+  ],
+  "cg2": {
+    "size_bytes": 131072,
+    "p95_limit_ms": 10,
+    "p95_ms": 1,
+    "pass": true
+  },
+  "meta": {
+    "app_version": "0.1.0",
+    "tauri_version": "2.12.5",
+    "os": "macos",
+    "arch": "aarch64",
+    "env": {
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)",
+      "device_pixel_ratio": 2,
+      "screen": "1440x900",
+      "inner": "1440x773",
+      "cross_origin_isolated": false,
+      "timer_resolution_ms": 1
+    },
+    "csp": {
+      "violations_and_console_problems": [],
+      "ipc_fell_back_to_postmessage": false
+    }
+  },
+  "host": {
+    "machine": "Apple M1, 16 GB, macOS 26.6.2",
+    "build": "cargo release (opt-level 3, lto thin), tauri build --no-bundle",
+    "command": "target/release/dokumentz-app-tauri --spike ipc --exit",
+    "load_average_at_start": "load averages: 6.53 9.10 11.71",
+    "generated_at": "2026-10-23T03:36Z",
+    "caveat": "Mac compartido: otros procesos ajenos usaban CPU durante la medicion (load average 7-9 en 8 nucleos). performance.now() de WebKit va redondeado a 1 ms: los percentiles son escalones de 1 ms; mean_from_total_ms (IPC) y mean_ms (canvas) son las cifras con resolucion real."
+  },
+  "runs": {
+    "note": "3 ejecuciones consecutivas; este archivo es la mediana (por la media), numero indicado en median_run.",
+    "median_run": 3,
+    "summary": [
+      {
+        "run": 1,
+        "load": "load averages: 6.24 9.14 11.76",
+        "echo_128k_p95_ms": 1,
+        "echo_128k_mean_ms": 0.433,
+        "channel_128k_p95_ms": 1,
+        "channel_128k_mean_ms": 0.719
+      },
+      {
+        "run": 2,
+        "load": "load averages: 6.14 9.07 11.72",
+        "echo_128k_p95_ms": 1,
+        "echo_128k_mean_ms": 0.494,
+        "channel_128k_p95_ms": 1,
+        "channel_128k_mean_ms": 0.781
+      },
+      {
+        "run": 3,
+        "load": "load averages: 6.53 9.10 11.71",
+        "echo_128k_p95_ms": 1,
+        "echo_128k_mean_ms": 0.481,
+        "channel_128k_p95_ms": 1,
+        "channel_128k_mean_ms": 0.711
+      }
+    ]
+  }
+}

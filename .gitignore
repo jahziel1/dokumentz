@@ -1,0 +1,17 @@
+# Compilación y dependencias
+target/
+node_modules/
+
+# Datos de prueba generados (A1-A3) y corpus locales (A4): se ignoran, salvo el manifiesto de A4.
+# Se ignora el contenido (no la carpeta) para poder reincluir el manifiesto.
+/testdata/*
+!/testdata/a4/
+/testdata/a4/*
+!/testdata/a4/manifest.toml
+
+# Resultados de medición: la evidencia en vídeo y los datos privados no se versionan.
+results/**/evidencia/*.mp4
+results/**/privado/
+
+# Ruido del sistema operativo
+.DS_Store

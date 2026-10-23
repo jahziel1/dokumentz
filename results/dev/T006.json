@@ -1,0 +1,164 @@
+{
+  "_meta": {
+    "ironcalc": "0.9.1",
+    "maquina": "Apple M1, 16 GB, macOS (ver research.md)",
+    "perfil": "release",
+    "tarea": "T006"
+  },
+  "h01_base_1": {
+    "fila_columna_base": 1,
+    "hoja_base": 0,
+    "max_columnas": 16384,
+    "max_filas": 1048576
+  },
+  "h02_tamanos": {
+    "alto_30_puntos_px": 46.875,
+    "ancho_20_caracteres_px": 186.3984375,
+    "columna_defecto": 90.0,
+    "factor_alto": 1.5625,
+    "factor_ancho": 9.0,
+    "fila_defecto": 25.0
+  },
+  "h03_key_expand": {
+    "otras": "se ignoran sin error",
+    "range": "[fila_ini, col_ini, fila_fin, col_fin] normalizado",
+    "validas": [
+      "ArrowRight",
+      "ArrowLeft",
+      "ArrowUp",
+      "ArrowDown"
+    ]
+  },
+  "h04_selected_view": {
+    "campos": [
+      "column",
+      "left_column",
+      "range",
+      "row",
+      "sheet",
+      "top_row"
+    ],
+    "foco_expuesto": false,
+    "nombrable": false
+  },
+  "h05_bug_formula_fallida": {
+    "reproduccion": "es/es: =IF(1>0,2,3) y luego =SI(1>0;2;3) -> segunda queda =IF(1>0,2,3) con #ERROR!"
+  },
+  "h05_idioma": {
+    "error_nombre_en": "#NAME?",
+    "error_nombre_es": "#¿NOMBRE?",
+    "ingles_en_es": "error de nombre; texto conservado en minúsculas"
+  },
+  "h05_locale": {
+    "decision_pendiente": "qué locale usa Lang::Es (España o México)",
+    "locale_en_idioma_es": {
+      "argumentos": ",",
+      "decimal": "."
+    },
+    "locale_es": {
+      "argumentos": ";",
+      "decimal": ","
+    }
+  },
+  "h05_set_language": {
+    "celda_sin_evaluar_se_ve": "#ERROR!",
+    "entra_en_historial": false,
+    "evalua": false
+  },
+  "h06_h07_coste_evaluate": {
+    "carga_ms": 1266.9,
+    "edicion_con_pause_ms_mediana_de_3": 0.0,
+    "edicion_de_U1_ms_mediana_de_3": 39.4,
+    "edicion_de_celda_independiente_ms": 40.12,
+    "evaluate_ms_mediana_de_3": 39.68,
+    "generar_xlsx_ms": 2037.18,
+    "libro": "100000 x 20 (2 000 000 celdas) + 10 000 fórmulas =$U$1*A{n} que dependen de U1",
+    "mismo_libro_sin_formulas": {
+      "edicion_ms": 34.43,
+      "evaluate_ms_mediana_de_3": 34.38
+    },
+    "primera_evaluacion_ms": 52.06,
+    "reintento_de_idioma": {
+      "edicion_normal_en_es_ms": 38.38,
+      "estrategia_A_con_pause_ms": 103.79,
+      "estrategia_A_ingenua_ms": 123.84
+    },
+    "resume_y_evaluate_ms": 39.61,
+    "solo_formulas_sin_datos": {
+      "edicion_ms": 1.88,
+      "evaluate_ms_mediana_de_3": 1.37,
+      "libro": "2 filas x 20 + 10 000 fórmulas"
+    }
+  },
+  "h07_semantica": {
+    "edicion_evalua_todo": true,
+    "formula_volatil_independiente_se_recalcula": true,
+    "pause_evita": true,
+    "resume_evalua": false,
+    "undo_evalua": true
+  },
+  "h08_resolve_color": {
+    "formato": "#RRGGBB",
+    "sin_color": "cadena vacía",
+    "tema_resuelto": "#97B4D8"
+  },
+  "h09_workbook_publico": {
+    "dimension_publica": true,
+    "filas_con_entrada_row": 100000,
+    "get_row_height_1000_llamadas_ms": 20.73,
+    "get_row_height_por_llamada_us": 20.73,
+    "get_row_height_x100000_extrapolado_ms": 2073.02,
+    "leer_rows_directamente_100000_ms": 0.18,
+    "rows_y_cols_publicos": true,
+    "workbook_publico": true
+  },
+  "h10_partes_no_soportadas": {
+    "avisos_del_prototipo": [
+      "gráficos",
+      "imágenes",
+      "dibujos",
+      "validación de datos en xl/worksheets/sheet1.xml"
+    ],
+    "carga_informa_partes_no_soportadas": false,
+    "deteccion_propia_necesaria": true,
+    "notas_leidas_al_modelo": 1,
+    "partes_perdidas_al_guardar": [
+      "xl/worksheets/_rels/sheet1.xml.rels",
+      "xl/drawings/drawing1.xml",
+      "xl/drawings/vmlDrawing1.vml",
+      "xl/comments1.xml",
+      "xl/media/image1.png",
+      "xl/charts/chart1.xml",
+      "xl/drawings/_rels/drawing1.xml.rels"
+    ]
+  },
+  "h11_paste_csv_string": {
+    "campos_vacios_finales": "borran celdas a la derecha",
+    "comillas_tab_salto_de_linea": "ok",
+    "crlf": "ok",
+    "filas_mas_cortas_que_la_primera": "se descartan en silencio",
+    "una_entrada_de_historial": true
+  },
+  "h12_clipboard_csv": {
+    "alcanzable_por_serde": true,
+    "aplica_trim": true,
+    "campo_csv_accesible": false,
+    "decision": "el núcleo arma su TSV"
+  },
+  "x01_carga_sin_evaluar": {
+    "valor_tras_cargar": "7 (guardado)",
+    "valor_tras_evaluate": "5 (recalculado)"
+  },
+  "x02_guardado": {
+    "camino_recomendado": "save_xlsx_to_writer + File propio + rename",
+    "carpeta_inexistente": "panic",
+    "save_to_xlsx_sobrescribe": false
+  },
+  "x03_send_sync": {
+    "user_model_static_send_sync": true
+  },
+  "x04_scroll_por_celda": {
+    "pagina_con_500px_y_filas_de_25": 20,
+    "scroll_por_pixel": false
+  }
+}

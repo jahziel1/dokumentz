@@ -1,0 +1,11 @@
+[package]
+name = "dokumentz-script"
+description = "Guiones de prueba compartidos por las interfaces de Dokumentz: Step, Script, ScriptResult"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]

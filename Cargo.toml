@@ -1,0 +1,65 @@
+# Espacio de trabajo de Dokumentz.
+#
+# Todos los miembros se declaran aquí desde E01 (T001-T002) para que las etapas
+# siguientes no editen este archivo en paralelo; solo tocan el `Cargo.toml` de su
+# propio crate. Única excepción prevista: E03 (dependencia git de GPUI y los
+# `[patch.crates-io]` que acompañan a esa dependencia).
+
+[workspace]
+resolver = "3"
+members = [
+    "crates/dokumentz-sheet",
+    "crates/dokumentz-metrics",
+    "crates/dokumentz-script",
+    "tools/testdata-gen",
+    "tools/xlsx-diff",
+    "tools/compat-check",
+    "tools/bench-runner",
+    "tools/bench-report",
+    "apps/gpui",
+    "apps/tauri/src-tauri",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/jahziel1/dokumentz"
+publish = false
+
+[workspace.dependencies]
+# Versiones exactas (plan.md §2.2). Ninguna con `*`.
+# `ironcalc` e `ironcalc_base` solo los declara `dokumentz-sheet`.
+ironcalc = "=0.9.1"
+ironcalc_base = "=0.9.1"
+rust_xlsxwriter = "=0.101.0"
+calamine = "=0.37.0"
+# Solo para la prueba `no_ui_deps` de `dokumentz-sheet`; el resto de versiones
+# de utilidades se fija en `Cargo.lock` en la etapa que las introduce.
+serde_json = "1"
+# GPUI (interfaz B, E03/T007): dependencia git del repositorio de Zed con `rev` fijo.
+# Commit `9e84b066b55bc3609a30dd965075c12255b38b45` = cabeza de `main` de zed-industries/zed
+# el 22-oct-2026 (la versión 0.2.2 de crates.io está obsoleta). `gpui` conserva sus
+# características por defecto (`font-kit`, `wayland`, `x11`, `windows-manifest`).
+# `runtime_shaders`: en este Mac `xcrun -f metal` responde pero el componente «Metal Toolchain»
+# de Xcode 27 no está instalado (`xcodebuild -showComponent MetalToolchain` -> uninstalled), y el
+# `build.rs` de `gpui_apple` falla con «cannot execute tool 'metal'». Con la característica,
+# los shaders se compilan al arrancar y no hace falta descargar nada (plan.md §2.2).
+gpui = { git = "https://github.com/zed-industries/zed", rev = "9e84b066b55bc3609a30dd965075c12255b38b45" }
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "9e84b066b55bc3609a30dd965075c12255b38b45", features = ["font-kit", "wayland", "x11", "runtime_shaders"] }
+
+# Parches de Zed que afectan a la clausura de `gpui` (replicados de su `Cargo.toml` raíz, mismo
+# commit, 22-oct-2026). Los `[patch.crates-io]` de una dependencia no se heredan, hay que
+# repetirlos aquí. Descartados: `cpal`, `tree-sitter-language`, `async-process`, `windows-capture`,
+# `livekit`, `libwebrtc`, `webrtc-sys`, `notify`, `notify-types`, `scratch` (ver informe de E03).
+[patch.crates-io]
+async-task = { git = "https://github.com/zed-industries/async-task.git", rev = "015845a19fc31752c02367567d3b8900a406f9da" }
+calloop = { git = "https://github.com/zed-industries/calloop", rev = "3759371fee14c40066d64777e2a36b6ffcc22590" }
+khronos-egl = { git = "https://github.com/zed-industries/khronos-egl", rev = "42214b36347b108fd9630ca6254b96dde59e04fe" }
+
+# Perfil común a ambas interfaces. Nunca se mide una compilación `debug`.
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

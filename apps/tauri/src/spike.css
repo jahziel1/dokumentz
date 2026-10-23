@@ -1,0 +1,6 @@
+html, body { margin: 0; padding: 0; background: #fff; color: #111; font: 13px system-ui, sans-serif; }
+#bar { display: flex; gap: 12px; align-items: center; height: 36px; padding: 0 12px; background: #eef2f8; }
+#status { margin-left: auto; color: #555; }
+#stage { height: 784px; }
+#stage canvas { display: block; }
+#log { margin: 0; padding: 8px 12px; max-height: 120px; overflow: auto; font: 11px ui-monospace, monospace; }

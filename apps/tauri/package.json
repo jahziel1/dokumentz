@@ -1,0 +1,27 @@
+{
+  "name": "dokumentz-tauri-spike",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Frontend del spike de Tauri (T009 puente IPC, T010 canvas 2D)",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "~2.12.4"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "~2.12.4",
+    "typescript": "~7.0.2",
+    "vite": "~8.3.5",
+    "vitest": "~5.0.5"
+  }
+}

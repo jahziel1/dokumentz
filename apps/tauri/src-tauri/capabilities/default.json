@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permisos mínimos del spike: solo los cuatro comandos propios, sin plugins ni API del sistema.",
+  "windows": ["main"],
+  "permissions": [
+    "allow-spike-args",
+    "allow-ipc-echo",
+    "allow-ipc-channel-push",
+    "allow-spike-report"
+  ]
+}

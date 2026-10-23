@@ -135,7 +135,7 @@ Etiquetas de ejecutores `[VERIFICADO]` (github.com/actions/runner-images README)
 | 5 Idioma de fórmulas | El idioma es seleccionable (`--lang es` o `--lang en`, por defecto el del sistema si está entre `en, es, fr, de, it`) **y** el núcleo acepta nombres del otro idioma al teclear (§5.7). A2 se abre con `es` |
 | 6 Copiar con formato o valor | Se copia el **texto formateado tal como se ve** (lo que Excel pone en el portapapeles como texto) |
 | 7 Archivo enorme | Resuelta en `spec.md`: hasta el límite de Excel (1 048 576 × 16 384) sin congelarse; abrir ocurre en un hilo de trabajo con indicador «Abriendo…»; si no cabe en memoria, mensaje claro sin cerrarse. Prueba de estrés opcional de 1 000 000 × 20 |
-| 8 Contenido no soportado | Resuelta en `spec.md`: se ignora al mostrar y **se avisa al abrir** si el archivo trae partes que la PoC no conserva (`[A VERIFICAR EN T006]` si IronCalc las informa; si no, detección propia de las partes del paquete). En esos archivos, Cmd/Ctrl+S **pide confirmación** antes de sobrescribir y «Guardar como» propone un nombre nuevo; en los demás, Cmd/Ctrl+S sobrescribe sin preguntar |
+| 8 Contenido no soportado | Resuelta en `spec.md`: se ignora al mostrar y **se avisa al abrir** si el archivo trae partes que la PoC no conserva (`[VERIFICADO]` en T006: IronCalc 0.9.1 **no** las informa, porque `load_from_xlsx` devuelve `Result<Model, XlsxError>` sin canal de avisos y un gráfico, una imagen o una validación de datos no dan ninguna señal; por eso la detección es propia, sobre las partes del paquete). En esos archivos, Cmd/Ctrl+S **pide confirmación** antes de sobrescribir y «Guardar como» propone un nombre nuevo; en los demás, Cmd/Ctrl+S sobrescribe sin preguntar |
 | 9 y 10 Regla de decisión / agregación | El agregador implementa la lectura de `spec.md` («en alguna de las dos» para ≥2× en M-03/M-04; p95 por repetición y mediana entre repeticiones) |
 | 11 Umbrales | Resuelta en `spec.md`: se adoptan los propuestos y se congelan en `criteria.toml` antes de la primera corrida oficial (T049); no se cambian después de ver datos |
 | 12 Archivos A4 | **Resuelta (2026-10-22):** archivos del usuario + corpus públicos (Apache POI `test-data/spreadsheet`, Apache-2.0; LibreOffice `sc/qa/unit/data/xlsx`, MPL-2.0), incluidos `.xlsm`. Un manifiesto (`testdata/a4/manifest.toml`, que sí se versiona) lista fuente, licencia y SHA-256; los archivos van a `testdata/a4/` (ignorado por git). Nunca se ejecutan macros (T114, T115). **A4 alimenta SC-007** (T115–T118) y se informa por fuente (usuario / Apache POI / LibreOffice); sin A4 preparado, SC-007 queda `sin datos` |
@@ -261,7 +261,7 @@ Reglas del árbol:
 - Dependencias permitidas: `ironcalc`, `ironcalc_base`, `serde`, `thiserror` y, por la característica `metrics`, `dokumentz-metrics`. Nada de ventanas, async runtimes ni portapapeles del sistema (la interfaz mueve cadenas entre el portapapeles del SO y el núcleo).
 - Todo lo que decide qué se ve (texto formateado, estilo resuelto, geometría, qué celda está bajo un punto, qué celda queda activa tras una tecla) lo calcula el núcleo y es probable sin ventana.
 - Índices: IronCalc usa **hojas base 0 (`u32`) y filas/columnas base 1 (`i32`)**: `set_user_input(0, 1, 1, …)` escribe en A1 `[VERIFICADO]` en las pruebas de `main` (`base/src/test/user_model/test_language_switch.rs`). El núcleo expone los mismos índices.
-- Dimensiones máximas del motor: 1 048 576 filas × 16 384 columnas; tamaños por defecto 90,0 de ancho y 25,0 de alto `[VERIFICADO]` en `base/src/constants.rs` de `main` (constantes `pub(crate)`; se leen con `get_column_width`/`get_row_height`). Unidad (píxeles lógicos) `[A VERIFICAR EN T006]`.
+- Dimensiones máximas del motor: 1 048 576 filas × 16 384 columnas; tamaños por defecto 90,0 de ancho y 25,0 de alto `[VERIFICADO]` en `base/src/constants.rs` de `main` (constantes `pub(crate)`; se leen con `get_column_width`/`get_row_height`). Unidad `[VERIFICADO]` en T006 (0.9.1): píxeles lógicos **de IronCalc**, no los de Excel: ancho = caracteres del archivo × 9 y alto = puntos × 1,5625 (constantes públicas `COLUMN_WIDTH_FACTOR` y `ROW_HEIGHT_FACTOR`); lo oculto mide 0,0; lo no definido mide 90×25 (Excel a 96 ppp: 64×20). A igual zoom se ven menos filas que en Excel u ONLYOFFICE; hay que tenerlo en cuenta al comparar.
 
 ### 5.2 Estado y construcción
 
@@ -269,9 +269,9 @@ El tiempo de vida de `UserModel<'a>` viene de las cadenas de configuración (`lo
 
 ```rust
 // crates/dokumentz-sheet/src/core.rs  (pseudocódigo)
-pub enum Lang { Es, En }                       // language_id "es"/"en"; locale_id igual (locales_list.json: en, en-GB, de, es, fr, it)
+pub enum Lang { Es, En }                       // language_id "es"/"en" (solo nombres de función); locale_id aparte: decide separadores y decimales (§5.7; locales_list.json: en, en-GB, de, es, fr, it)
 
-pub struct OpenOptions { pub lang: Lang, pub tz: &'static str /* "UTC" */ }
+pub struct OpenOptions { pub lang: Lang, pub locale: &'static str /* "en" o "es"; ver §5.7 */, pub tz: &'static str /* "UTC" */ }
 
 pub struct Core {
     um: UserModel<'static>,
@@ -296,6 +296,8 @@ impl Core {
     // ironcalc::export::save_to_xlsx(model: &Model<'_>, file_name: &str) -> Result<(), XlsxError>
     //                                                                       [VERIFICADO] docs.rs
     // se llama con self.um.get_model()  [VERIFICADO: get_model(&self) -> &Model<'_>]
+    // [VERIFICADO en T006, 0.9.1] save_to_xlsx NO sobrescribe un archivo existente y PANICA si la carpeta no existe:
+    //   el núcleo abre su propio File (tmp) y usa save_xlsx_to_writer; luego rename.
     pub fn save_xlsx(&mut self, path: Option<&Path>) -> Result<SaveInfo, CoreError>;   // atómico: tmp + rename
 
     pub fn apply(&mut self, cmd: Command) -> Result<UiState, CoreError>;     // todo lo que cambia estado
@@ -326,9 +328,9 @@ impl SheetGeometry {
 }
 ```
 
-- Se construye una vez por hoja recorriendo `get_row_height`/`get_column_width` hasta `used_rows`/`used_cols` y guardando solo lo distinto del valor por defecto. Con A1 son 100 000 consultas, un coste que se mide en T016 (presupuesto ≤ 20 ms; si no, se leen las filas con tamaño propio desde `get_model()` `[A VERIFICAR EN T006]` que sea público).
+- Se construye una vez por hoja leyendo **directamente** `get_model().workbook.worksheets[i].rows` y `.cols` (públicos, `[VERIFICADO]` en T006: `Row { r, height /*puntos*/, hidden, … }` y `Col { min, max, width /*caracteres*/, custom_width, hidden, … }`; se aplican `ROW_HEIGHT_FACTOR`/`COLUMN_WIDTH_FACTOR` y lo oculto vale 0) y guardando solo lo distinto del valor por defecto. **No** se llama a `get_row_height` fila por fila: recorre `rows` en cada llamada (lineal en el número de entradas `Row`; medido: 15 µs por llamada con 100 000 entradas, ≈ 1,5 s para 100 000 llamadas), mientras que leer `rows` entero cuesta 0,14 ms. El presupuesto de T016 (≤ 20 ms) se mide sobre la lectura directa.
 - Constantes de cabecera comunes a ambas UI y definidas en el núcleo: `ROW_HEADER_W = 46`, `COL_HEADER_H = 25` (px lógicos, propuesta). Así el recorte y el hit-test son idénticos.
-- `View` guarda el desplazamiento en **píxeles lógicos de hoja** (no en filas). `ScrollTo/ScrollBy` lo acotan a `[0, extent − viewport]`. Tras cualquier navegación, `ensure_visible(active)` ajusta el desplazamiento y llama a `set_top_left_visible_cell` para que `UserModel` coincida; `set_window_width/height` se llaman al cambiar el viewport (necesarios para `on_page_up/down`) `[VERIFICADO]` que existen; `[A VERIFICAR EN T022]` cómo reconcilia `UserModel` su desplazamiento propio (`get_scroll_x/y`) con el nuestro.
+- `View` guarda el desplazamiento en **píxeles lógicos de hoja** (no en filas). `ScrollTo/ScrollBy` lo acotan a `[0, extent − viewport]`. Tras cualquier navegación, `ensure_visible(active)` ajusta el desplazamiento y llama a `set_top_left_visible_cell` para que `UserModel` coincida; `set_window_width/height` se llaman al cambiar el viewport (necesarios para `on_page_up/down`) `[VERIFICADO]` que existen; `[A VERIFICAR EN T022]` cómo reconcilia `UserModel` su desplazamiento propio (`get_scroll_x/y`) con el nuestro (T006 adelanta: `UserModel` solo guarda la celda superior izquierda visible; `get_scroll_x/y` se deducen sumando los tamaños de las filas/columnas anteriores, en O(n) por llamada, así que no hay desplazamiento por píxel y el nuestro se lleva aparte).
 
 ### 5.4 Lista de dibujo y formato binario v1
 
@@ -415,7 +417,7 @@ pub struct UiState {                          // pequeño; viaja como JSON
 | Acción | Llamada de `UserModel` `[VERIFICADO]` que existe | Notas |
 |---|---|---|
 | Flechas | `on_arrow_right/left/up/down` | `[A VERIFICAR EN T021]` cómo saltan filas/columnas ocultas |
-| Mayús+flecha | `on_expand_selected_range(key: &str)` | formato de `key` `[A VERIFICAR EN T006]` |
+| Mayús+flecha | `on_expand_selected_range(key: &str)` | `key` = `KeyboardEvent.key` del DOM: `"ArrowRight"`, `"ArrowLeft"`, `"ArrowUp"`, `"ArrowDown"`; cualquier otra cadena se ignora **sin error** `[VERIFICADO]` en T006; `range` = `[fila_ini, col_ini, fila_fin, col_fin]` normalizado y el ancla no se mueve |
 | Clic | `set_selected_cell(row, column)` | tras `hit_test` del núcleo |
 | Arrastre | `on_area_selecting(target_row, target_column)` | |
 | Ctrl/Cmd+flecha | `on_navigate_to_edge_in_direction(NavigationDirection::{Left,Right,Up,Down})` | extender con Mayús es opcional: no hay API; se haría con `get_last_non_empty_in_row_before_column` y `get_first_non_empty_in_row_after_column` (solo filas) |
@@ -424,7 +426,7 @@ pub struct UiState {                          // pequeño; viaja como JSON
 | Valor para la barra de fórmulas | `get_cell_content(sheet,row,col)` | en el idioma activo |
 | Confirmar | `set_user_input(sheet,row,col,&str)` | evalúa **todo el libro** salvo `pause_evaluation()` (R-04) |
 | Deshacer/rehacer | `undo()`, `redo()`, `can_undo()`, `can_redo()` | |
-| Selección actual | `get_selected_view() -> SelectedView`, `get_selected_cell() -> (u32,i32,i32)` | campos de `SelectedView` `[A VERIFICAR EN T006]` |
+| Selección actual | `get_selected_view() -> SelectedView`, `get_selected_cell() -> (u32,i32,i32)` | `SelectedView { sheet, row, column, range: [i32;4], top_row, left_column }` `[VERIFICADO]` en T006: `row`/`column` son el ancla, no expone el foco (se deduce de `range`) y el tipo no se puede nombrar fuera de IronCalc (`pub use` bajo `#[cfg(test)]`), solo usarlo por inferencia |
 
 `EditSession` guarda la celda, el modo y el texto original (para Esc). La regla de avance de Office se implementa en el núcleo: Intro baja (Mayús+Intro sube), Tab va a la derecha (Mayús+Tab a la izquierda); si hay un rango seleccionado de varias celdas, el avance recorre el rango (`[NO VERIFICADO]` en ONLYOFFICE; se comprueba en T023 y, si difiere, se deja como celda única).
 
@@ -438,21 +440,23 @@ Política de teclear (FR-006, aclaración 5):
 2. Si la celda queda con el error de nombre desconocido (`#¿NOMBRE?` en `es`, `#NAME?` en `en`), el núcleo **reintenta con el otro idioma**: `undo()` (deshace el primer intento y lo saca del historial activo), `set_language(otro)`, `set_user_input` con el mismo texto, `set_language(activo)`. El historial neto queda con **una** entrada de edición.
 3. Si el reintento tampoco da un valor válido, se vuelve al resultado del primer intento (para que el texto tecleado no se pierda y se pueda corregir).
 
-Hechos que ayudan `[VERIFICADO]` en el código de `main`: `UserModel::set_language` delega en `Model::set_language`, que solo cambia el analizador y el idioma (`self.parser.set_language(language); self.language = language;`): **no evalúa y no entra en el historial** (`base/src/user_model/common.rs` y `base/src/model.rs`). `[A VERIFICAR EN T024]` contra 0.9.1, y el coste del reintento sobre A2: cada `set_user_input` evalúa todo el libro (R-04), así que un intento fallido más el reintento cuestan tres evaluaciones completas.
+Hechos que ayudan `[VERIFICADO]` en el código de `main`: `UserModel::set_language` delega en `Model::set_language`, que solo cambia el analizador y el idioma (`self.parser.set_language(language); self.language = language;`): **no evalúa y no entra en el historial** (`base/src/user_model/common.rs` y `base/src/model.rs`). `[VERIFICADO]` contra 0.9.1 en T006 (con la evaluación pausada, una fórmula sin evaluar sigue sin evaluar tras `set_language`; y no deja entrada en el historial). `[A VERIFICAR EN T024]` el coste del reintento sobre A2: cada `set_user_input` evalúa todo el libro (R-04), así que un intento fallido más el reintento cuestan tres evaluaciones completas. Medido en T006 (100 000×20 y 10 000 fórmulas, ≈ 38 ms por evaluación): el reintento (A) ingenuo cuesta ≈ 2,9× una edición normal y, con `pause_evaluation` (una evaluación para descubrir el error y otra al final), ≈ 1,9×, o sea que la regla de abajo (≤ 2×) elegiría (A) con pausa; T024 lo confirma sobre A2.
+
+**Locale ≠ idioma `[VERIFICADO]` en T006 (0.9.1).** El idioma solo decide los nombres de función; el `locale` decide el separador de argumentos y el decimal al teclear. Con `locale` `es`: argumentos con `;` y decimal `,` (`=SUMA(1,2)` se lee como `SUMA(1.2)`, y `1.5` queda como texto). Con `locale` `en` e idioma `es`: `,` separa argumentos y `.` es el decimal (como Excel en español de México). Suponer «`locale_id` igual al idioma» fija el convenio de España, así que el núcleo expone `locale` aparte. **Decisión del dueño (CP-0, 2026-10-22): el `locale` sigue a la región del sistema, como en Excel.** La interfaz lee la región del SO (en macOS, `AppleLocale`, por ejemplo `es_MX`) y la pasa al núcleo, que elige el `locale` de IronCalc según el convenio numérico de esa región: si la región usa coma decimal (`es_ES`, `es_AR`, `de_DE`…) elige `es`/`de`/`fr`/`it`; si usa punto decimal (`es_MX`, `es_US`, `en_US`…) elige `en`. El mapeo es una tabla del núcleo con pruebas (T015/T024), y `--locale` en la línea de comandos lo fuerza para guiones y mediciones. En el Mac del proyecto (`es_MX`) da `locale` `en` con idioma `es`: `=SUMA(1,2)` y punto decimal. Los `.xlsx` no se ven afectados: guardan la fórmula en inglés.
 
 **Dos implementaciones candidatas; T024 elige por medición.** (A) reintento con `undo` como arriba, que es lo más simple. (B) **traducir** en el núcleo los nombres de función del idioma contrario antes de llamar a `set_user_input`, con una tabla de nombres derivada de `generate_language/src/languages.json` (datos de IronCalc, Apache-2.0), que cuesta una sola evaluación. Se elige (A) si teclear una fórmula en inglés en una sesión `es` sobre A2 cuesta ≤ 2× una edición normal; si no, (B). Conjunto fijo de pruebas en T024: `SUMA/SUM`, `BUSCARV/VLOOKUP`, `BUSCARX/XLOOKUP`, `SI.ERROR/IFERROR`, `CONTAR.SI/COUNTIF`, `SI/IF`, más una función inexistente (debe quedar con error y conservar el texto).
 
 ### 5.8 Portapapeles (FR-010)
 
 - **Copiar:** el núcleo construye el TSV recorriendo el rango seleccionado con `get_formatted_cell_value` (texto tal como se ve; aclaración 6). Comillas dobles alrededor de campos con tabulador, salto de línea o comillas, duplicando las comillas, y filas separadas por `\n`. No se usa `copy_to_clipboard()` de IronCalc porque el campo `csv` de `Clipboard` es `pub(crate)` `[VERIFICADO]` (`base/src/user_model/clipboard.rs` en `main`).
-- **Pegar:** `paste_csv_string(&Area, &str)`, que lee con delimitador tabulador (`ReaderBuilder::delimiter(b'\t')`), arma **una sola lista de cambios** (una entrada de historial) y evalúa una vez al final `[VERIFICADO]` en `base/src/user_model/clipboard.rs` de `main`; antes de pegar el núcleo recorta la extensión final de tabuladores vacíos y normaliza `\r\n` a `\n` (caso límite de `spec.md` §4).
+- **Pegar:** `paste_csv_string(&Area, &str)`, que lee con delimitador tabulador (`ReaderBuilder::delimiter(b'\t')`), arma **una sola lista de cambios** (una entrada de historial) y evalúa una vez al final `[VERIFICADO]` en `base/src/user_model/clipboard.rs` de `main`; `[VERIFICADO]` en T006 (0.9.1): acepta campos entre comillas con tabuladores, saltos de línea y comillas duplicadas, y también `\r\n`; pero (a) **descarta en silencio las filas con distinto número de campos que la primera** (las siguientes suben un lugar) y (b) los campos vacíos finales **borran** las celdas de la derecha. Por eso, antes de pegar, el núcleo arma un rectángulo (rellena con tabuladores las filas cortas) y recorta las columnas finales vacías de todo el rectángulo (caso límite de `spec.md` §4).
 - La interfaz solo mueve la cadena entre el portapapeles del SO y `copy_text()` / `PasteText`.
 
 ### 5.9 Archivos (FR-001, FR-011)
 
 - `open_xlsx` devuelve `CoreError::{NoExiste, SinPermiso, NoEsXlsx(String), …}`; nunca entra en pánico con archivos truncados (prueba con fixtures corruptos en T015). Con `--open` por línea de comandos, un error termina el proceso con código distinto de cero y un mensaje en la salida de error (señal verificable para la automatización; `spec.md` §4).
 - **Lectura de solo lectura para `tools/compat-check` (FR-014).** `compat-check` abre los archivos por el mismo camino que la aplicación (`Core::open_xlsx`, idioma `en`, zona `UTC`) y necesita, sin ventana ni edición: la lista de hojas y su rango usado, el valor **sin formato** y tipado de cada celda (número, texto, booleano, error, vacío), el texto de la fórmula si la hay, y una llamada explícita a la evaluación completa. Esa API vive en `crates/dokumentz-sheet/src/inspect.rs` (`sheet_names`, `used_range`, `cell_raw`, `cell_formula`, `recalculate`) y solo lee. `[A VERIFICAR EN T115]` qué parte la da `UserModel`/`Model` de IronCalc 0.9.1 (`get_cell_content`, `get_cell_type`, `get_formatted_cell_value`; el valor sin formato puede requerir `get_model()`); la comprobación de fondo es que tras abrir y recalcular el valor leído proviene del **recálculo** y no del valor guardado en el archivo.
-- `save_xlsx`: escribe `ruta.tmp-<pid>` y renombra; el nombre propio de Office («Guardar») sobrescribe el archivo abierto; «Guardar como» pide ruta. Aviso de una línea si el archivo traía partes que IronCalc no modela (aclaración 8) `[A VERIFICAR EN T006]`.
+- `save_xlsx`: abre `ruta.tmp-<pid>` con `File::create` propio, llama a `save_xlsx_to_writer` y renombra (`save_to_xlsx` se niega a escribir sobre un archivo existente y entra en pánico si la carpeta no existe, `[VERIFICADO]` en T006); el nombre propio de Office («Guardar») sobrescribe el archivo abierto; «Guardar como» pide ruta. Aviso de una línea si el archivo traía partes que IronCalc no modela (aclaración 8): `[VERIFICADO]` en T006 que IronCalc no las informa, así que se detectan por las entradas del paquete (`xl/charts/`, `xl/drawings/`, `xl/media/`, `xl/pivotTables/`, `xl/vbaProject.bin`) y por `<dataValidations` en las hojas, y que **las pierde al guardar**, incluidas las notas (`xl/comments1.xml`): se leen al modelo pero no se escriben.
 
 ### 5.10 Instrumentación (FR-012) y modo guion
 

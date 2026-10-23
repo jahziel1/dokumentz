@@ -1,0 +1,89 @@
+{
+  "cg1": {
+    "supera": false,
+    "umbral_carga_ms": 10000.0,
+    "umbral_memoria_mb": 2048.0
+  },
+  "corridas": 3,
+  "detalle_de_las_corridas": [
+    {
+      "dimension_tras_recargar": [
+        100000,
+        20
+      ],
+      "footprint_mb": 334.75,
+      "footprint_mb_antes": 2.67,
+      "from_model_ms": 0.02,
+      "ida_y_vuelta_igual": true,
+      "importar_ms": 1313.84,
+      "load_ms": 1313.85,
+      "reload_ms": 1589.34,
+      "rss_mb": 454.16,
+      "rss_mb_antes": 7.44,
+      "rss_mb_con_dos_modelos": 775.3,
+      "rss_mb_pico_durante_la_carga": 439.19,
+      "save_ms": 1768.77,
+      "tamano_guardado_mb": 9.67,
+      "tamano_original_mb": 9.83
+    },
+    {
+      "dimension_tras_recargar": [
+        100000,
+        20
+      ],
+      "footprint_mb": 325.83,
+      "footprint_mb_antes": 2.64,
+      "from_model_ms": 0.0,
+      "ida_y_vuelta_igual": true,
+      "importar_ms": 1598.07,
+      "load_ms": 1598.07,
+      "reload_ms": 1160.29,
+      "rss_mb": 445.16,
+      "rss_mb_antes": 7.41,
+      "rss_mb_con_dos_modelos": 800.3,
+      "rss_mb_pico_durante_la_carga": 433.13,
+      "save_ms": 1545.25,
+      "tamano_guardado_mb": 9.67,
+      "tamano_original_mb": 9.83
+    },
+    {
+      "dimension_tras_recargar": [
+        100000,
+        20
+      ],
+      "footprint_mb": 329.22,
+      "footprint_mb_antes": 2.66,
+      "from_model_ms": 0.0,
+      "ida_y_vuelta_igual": true,
+      "importar_ms": 1235.84,
+      "load_ms": 1235.84,
+      "reload_ms": 1147.37,
+      "rss_mb": 448.63,
+      "rss_mb_antes": 7.42,
+      "rss_mb_con_dos_modelos": 798.39,
+      "rss_mb_pico_durante_la_carga": 448.55,
+      "save_ms": 1517.72,
+      "tamano_guardado_mb": 9.67,
+      "tamano_original_mb": 9.83
+    }
+  ],
+  "footprint_mb": 329.22,
+  "footprint_mb_antes": 2.66,
+  "from_model_ms": 0.0,
+  "generar_xlsx_ms": 2071.58,
+  "ida_y_vuelta_igual": true,
+  "importar_ms": 1313.84,
+  "ironcalc": "0.9.1",
+  "libro": "100000 filas x 20 columnas = 2000000 celdas (números, textos, fechas y estilos)",
+  "load_ms": 1313.85,
+  "mediana_de_3_procesos_nuevos": true,
+  "reload_ms": 1160.29,
+  "rss_mb": 448.63,
+  "rss_mb_antes": 7.42,
+  "rss_mb_con_dos_modelos": 798.39,
+  "rss_mb_pico_durante_la_carga": 439.19,
+  "save_ms": 1545.25,
+  "tamano_guardado_mb": 9.67,
+  "tamano_original_mb": 9.83,
+  "tarea": "T005"
+}

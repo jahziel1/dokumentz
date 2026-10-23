@@ -1,0 +1,28 @@
+[package]
+name = "dokumentz-app-tauri"
+description = "Interfaz A (Tauri): spike del puente IPC (T009) y del canvas 2D (T010)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+build = "build.rs"
+
+[lib]
+# Nombre distinto del binario para evitar colisiones de salida en Windows.
+name = "dokumentz_app_tauri_lib"
+
+[build-dependencies]
+# `tauri-build` no sigue la numeración de `tauri`: la última 2.x es 2.7 (crates.io, 2026-10-21).
+tauri-build = { version = "~2.7", features = [] }
+
+[dependencies]
+tauri = { version = "~2.12", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { workspace = true }
+
+[features]
+# Producción: las páginas salen del binario (protocolo personalizado) en vez de `devUrl`.
+# `tauri build` lo activa solo, pero se declara para poder compilar `cargo build --release` a mano.
+custom-protocol = ["tauri/custom-protocol"]

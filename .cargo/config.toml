@@ -1,0 +1,3 @@
+[alias]
+# Pruebas del núcleo y las herramientas: excluye las dos interfaces candidatas.
+test-core = "test --workspace --exclude dokumentz-app-tauri --exclude dokumentz-app-gpui"

@@ -1,0 +1,75 @@
+# cargo-deny: licencias, prohibiciones y fuentes (principio I de la constitución).
+#
+# El proyecto se publica bajo MIT OR Apache-2.0, así que solo entran dependencias con
+# licencias permisivas. Ninguna dependencia nueva se acepta sin pasar:
+#     cargo deny check licenses bans sources
+# (La comprobación de avisos de seguridad `advisories` necesita red y no forma parte de esta etapa.)
+
+[licenses]
+# Lista de PERMITIDAS. En cargo-deny 0.20 todo lo que no esté aquí queda denegado, de modo que
+# AGPL-*, GPL-*, LGPL-* y las licencias desconocidas o sin licencia se rechazan de forma
+# permanente (el proyecto es MIT OR Apache-2.0; las bibliotecas LGPL del sistema enlazadas
+# dinámicamente no son crates y no pasan por aquí). Una expresión SPDX con `OR` se acepta si
+# alguna de sus alternativas está permitida (p. ej. `MIT OR Apache-2.0 OR LGPL-2.1-or-later`
+# en `r-efi` se acepta por MIT/Apache-2.0).
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib", # `zlib-rs` (solo Zlib); `bytemuck` también la ofrece como alternativa
+    "Unicode-3.0", # datos de Unicode en `unicode-ident`
+]
+# Las licencias de la lista que ningún crate use hoy no son un problema: es la política.
+unused-allowed-license = "allow"
+confidence-threshold = 0.93
+
+# Licencias permisivas ADICIONALES: solo se añaden aquí, una a una, con el nombre del crate que
+# la exige y por qué es aceptable. Hoy no hace falta ninguna: las que aparecen fuera de la lista
+# (BSL-1.0 en `ryu`, Unlicense en `aho-corasick`/`csv`/`memchr`, LGPL-2.1-or-later en `r-efi`)
+# siempre vienen como alternativa `OR` junto a MIT o Apache-2.0.
+
+# EXCEPCIONES POR CRATE (decisión del dueño en CP-0, 2026-10-22; research.md, «Licencias de la
+# clausura de las interfaces»). MPL-2.0 no es GPL/LGPL/AGPL (principio I): es copyleft por
+# archivo, así que no obliga a cambiar la licencia del proyecto mientras no se modifiquen esos
+# archivos (si se modificaran, solo esos archivos tendrían que publicarse bajo MPL-2.0). CC0-1.0
+# es una cesión al dominio público. Solo se permiten para estos crates: un crate MPL nuevo vuelve
+# a fallar y exige una revisión explícita.
+exceptions = [
+    # Tauri: `wry` y `tauri-utils` -> `dom_query` -> `selectors`/`cssparser` (van en el binario).
+    { crate = "cssparser", allow = ["MPL-2.0"] },
+    { crate = "cssparser-macros", allow = ["MPL-2.0"] }, # macro de procedimiento, solo al compilar
+    { crate = "selectors", allow = ["MPL-2.0"] },
+    { crate = "dtoa-short", allow = ["MPL-2.0"] },
+    # Tauri, `wry` y `zed-font-kit` -> `dirs` -> `dirs-sys` -> `option-ext`.
+    { crate = "option-ext", allow = ["MPL-2.0"] },
+    # GPUI: dependencia de compilación de `gpui_apple` (genera cabeceras C; no se enlaza).
+    { crate = "cbindgen", allow = ["MPL-2.0"] },
+    # GPUI en Windows: `zed-font-kit` -> `dwrote`.
+    { crate = "dwrote", allow = ["MPL-2.0"] },
+    # GPUI en Linux X11: `zed-xim` -> `ahash` -> `const-random` -> `tiny-keccak`.
+    { crate = "tiny-keccak", allow = ["CC0-1.0"] },
+]
+
+[bans]
+multiple-versions = "warn"
+# Versiones con comodín (`*`) prohibidas; las rutas de crates del propio espacio de trabajo
+# (que no se publican) están permitidas.
+wildcards = "deny"
+allow-wildcard-paths = true
+highlight = "all"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# GPUI se toma por git del repositorio de Zed (E03) y los `[patch.crates-io]` que lo acompañan
+# apuntan a bifurcaciones de la misma organización.
+# Mientras no haya dependencias git, cargo-deny avisa «unmatched-organization»: es esperado.
+# (`github.com/zed-industries/zed` queda cubierto por la organización.)
+allow-org = { github = ["zed-industries"] }
+# `gpui_wgpu` (GPUI en Linux y web) toma `wgpu`/`naga` por git del repositorio oficial de wgpu
+# (MIT OR Apache-2.0). Se permite solo ese repositorio, no la organización (CP-0, 2026-10-22).
+allow-git = ["https://github.com/gfx-rs/wgpu"]

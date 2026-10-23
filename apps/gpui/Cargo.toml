@@ -1,0 +1,17 @@
+[package]
+name = "dokumentz-app-gpui"
+description = "Interfaz B (GPUI): spike de E03 (rejilla sintética y cuadro de texto con IME)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+# Git de Zed con `rev` fijo: ver el comentario en el `Cargo.toml` raíz (E03/T007).
+gpui.workspace = true
+gpui_platform.workspace = true
+# Límites de grafema en el cuadro de texto (como el ejemplo `input.rs` de Zed).
+# MIT OR Apache-2.0.
+unicode-segmentation = "1"

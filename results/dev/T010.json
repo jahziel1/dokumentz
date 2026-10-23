@@ -1,0 +1,145 @@
+{
+  "spike": "canvas",
+  "task": "T010",
+  "ok": true,
+  "geometry": {
+    "cols": 50,
+    "rows": 56,
+    "cell_w": 28,
+    "cell_h": 14,
+    "font_px": 10,
+    "pad": 3,
+    "cells": 2800,
+    "canvas_css": "1400x784",
+    "canvas_px": "2800x1568",
+    "dpr": 2
+  },
+  "scroll": {
+    "vx_px_s": 240,
+    "vy_px_s": 480
+  },
+  "duration_s": 10,
+  "warmup_s": 1,
+  "measured": {
+    "frames": 602,
+    "fps": 60.1,
+    "paint_ms": {
+      "n": 602,
+      "min_ms": 3,
+      "p50_ms": 4,
+      "p95_ms": 6,
+      "p99_ms": 6,
+      "max_ms": 7,
+      "mean_ms": 4.4252
+    },
+    "frame_interval_ms": {
+      "n": 601,
+      "min_ms": 15,
+      "p50_ms": 17,
+      "p95_ms": 17,
+      "p99_ms": 18,
+      "max_ms": 18,
+      "mean_ms": 16.6656
+    },
+    "dropped_frames": 0
+  },
+  "text": {
+    "frames_painted": 993,
+    "measure_calls": 625,
+    "cache_hits": 2833668,
+    "clip_calls": 55795,
+    "hash_cells": 53893,
+    "cache_entries": 1813
+  },
+  "flushed": {
+    "frames": 301,
+    "fps": 60.2,
+    "paint_ms": {
+      "n": 301,
+      "min_ms": 5,
+      "p50_ms": 6,
+      "p95_ms": 8,
+      "p99_ms": 8,
+      "max_ms": 8,
+      "mean_ms": 6.1329
+    },
+    "frame_interval_ms": {
+      "n": 300,
+      "min_ms": 15,
+      "p50_ms": 17,
+      "p95_ms": 17,
+      "p99_ms": 18,
+      "max_ms": 18,
+      "mean_ms": 16.6667
+    },
+    "dropped_frames": 0,
+    "duration_s": 5,
+    "note": "diagnostico: getImageData(0,0,1,1) tras cada cuadro fuerza la rasterizacion; no es la medicion principal"
+  },
+  "webgl_signal": {
+    "threshold_ms": 6,
+    "p95_paint_ms": 6,
+    "exceeds": false,
+    "p95_paint_flushed_ms": 8,
+    "exceeds_flushed": true
+  },
+  "meta": {
+    "app_version": "0.1.0",
+    "tauri_version": "2.12.5",
+    "os": "macos",
+    "arch": "aarch64",
+    "env": {
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)",
+      "device_pixel_ratio": 2,
+      "screen": "1440x900",
+      "inner": "1440x774",
+      "cross_origin_isolated": false,
+      "timer_resolution_ms": 1
+    },
+    "csp": {
+      "violations_and_console_problems": [],
+      "ipc_fell_back_to_postmessage": false
+    }
+  },
+  "host": {
+    "machine": "Apple M1, 16 GB, macOS 26.6.2",
+    "build": "cargo release (opt-level 3, lto thin), tauri build --no-bundle",
+    "command": "target/release/dokumentz-app-tauri --spike canvas --exit",
+    "load_average_at_start": "load averages: 6.93 8.99 11.60",
+    "generated_at": "2026-10-23T03:36Z",
+    "caveat": "Mac compartido: otros procesos ajenos usaban CPU durante la medicion (load average 7-9 en 8 nucleos). performance.now() de WebKit va redondeado a 1 ms: los percentiles son escalones de 1 ms; mean_from_total_ms (IPC) y mean_ms (canvas) son las cifras con resolucion real."
+  },
+  "runs": {
+    "note": "3 ejecuciones consecutivas; este archivo es la mediana (por la media), numero indicado en median_run.",
+    "median_run": 2,
+    "summary": [
+      {
+        "run": 1,
+        "load": "load averages: 6.48 9.05 11.68",
+        "paint_p95_ms": 6,
+        "paint_mean_ms": 4.4295,
+        "interval_p95_ms": 18,
+        "flushed_paint_p95_ms": 7,
+        "flushed_paint_mean_ms": 6.1927
+      },
+      {
+        "run": 2,
+        "load": "load averages: 6.93 8.99 11.60",
+        "paint_p95_ms": 6,
+        "paint_mean_ms": 4.4252,
+        "interval_p95_ms": 17,
+        "flushed_paint_p95_ms": 8,
+        "flushed_paint_mean_ms": 6.1329
+      },
+      {
+        "run": 3,
+        "load": "load averages: 6.63 8.83 11.50",
+        "paint_p95_ms": 6,
+        "paint_mean_ms": 4.3953,
+        "interval_p95_ms": 17,
+        "flushed_paint_p95_ms": 8,
+        "flushed_paint_mean_ms": 5.9734
+      }
+    ]
+  }
+}

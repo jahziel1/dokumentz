@@ -1,0 +1,11 @@
+[package]
+name = "testdata-gen"
+description = "Generador de datos de prueba (FR-013): A1, A2, A3, empty y small"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
