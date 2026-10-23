@@ -1,0 +1,49 @@
+{
+  "deshacer": {
+    "mediana_ms": 105.14,
+    "muestras_ms": [
+      196.72,
+      108.52,
+      99.63,
+      99.51,
+      105.14
+    ]
+  },
+  "deshacer_y_pintar": {
+    "mediana_ms": 134.95,
+    "muestras_ms": [
+      161.48,
+      143.37,
+      132.5,
+      134.95,
+      133.06
+    ]
+  },
+  "editar_u1": {
+    "mediana_ms": 105.44,
+    "muestras_ms": [
+      168.92,
+      105.71,
+      102.19,
+      100.85,
+      105.44
+    ]
+  },
+  "libro": {
+    "columnas": 20,
+    "dependientes": 10000,
+    "filas": 100000,
+    "perfil": "release"
+  },
+  "nota": "deshacer y rehacer descartan la geometría; deshacer_y_pintar incluye reconstruirla",
+  "rehacer": {
+    "mediana_ms": 100.03,
+    "muestras_ms": [
+      149.32,
+      109.79,
+      99.5,
+      99.47,
+      100.03
+    ]
+  }
+}

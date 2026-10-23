@@ -1,0 +1,24 @@
+{
+  "schema": "dokumentz-script/1",
+  "name": "nav-basico",
+  "steps": [
+    { "step": "open", "path": "testdata/ci/A1.xlsx" },
+    { "step": "wait_idle", "timeout_ms": 5000 },
+    { "step": "mark", "name": "first_data_frame" },
+    { "step": "assert_cell", "cell": "A1", "value": "Nombre" },
+    { "step": "key", "key": "ArrowDown", "repeat": 2 },
+    { "step": "key", "key": "ArrowRight", "mods": ["shift"] },
+    { "step": "assert_selection", "range": "A3:B3", "active": "A3" },
+    { "step": "text", "text": "hola" },
+    { "step": "key", "key": "Enter" },
+    { "step": "assert_cell", "cell": "A3", "value": "hola", "formula": "hola" },
+    { "step": "scroll", "dy": 400, "count": 5, "every_ms": 16 },
+    { "step": "drag", "from": { "cell": "B2" }, "to": { "cell": "D5" }, "duration_ms": 100 },
+    { "step": "assert_selection", "range": "B2:D5", "active": "B2" },
+    { "step": "assert_formula_bar", "text": "Total" },
+    { "step": "wait_ms", "ms": 50 },
+    { "step": "key", "key": "s", "mods": ["command"] },
+    { "step": "save", "path": "out.xlsx" },
+    { "step": "quit" }
+  ]
+}

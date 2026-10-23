@@ -1,0 +1,7 @@
+{
+  "build_block_ms_mediana_de_15": 1.65,
+  "celdas_en_el_bloque": 3392,
+  "maquina": "Apple M1, 16 GB, macOS (ver research.md)",
+  "perfil": "release",
+  "tarea": "T017"
+}

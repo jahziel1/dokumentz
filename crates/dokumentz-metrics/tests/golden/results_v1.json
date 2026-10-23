@@ -1,0 +1,111 @@
+{
+  "schema": "dokumentz-bench/1",
+  "run_id": "2026-11-03T10-12-00Z-macos-m1",
+  "criteria_sha": null,
+  "method": "internal",
+  "env": {
+    "os": "macOS 26.6.2",
+    "arch": "arm64",
+    "cpu": "Apple M1",
+    "ram_gb": 16.0,
+    "gpu": "Apple M1",
+    "display": {
+      "width_px": 2560,
+      "height_px": 1600,
+      "scale": 2.0,
+      "refresh_hz": 60.0
+    },
+    "vm": false,
+    "power": "ac",
+    "session": "aqua"
+  },
+  "app": {
+    "id": "dokumentz-app-gpui",
+    "version": "0.1.0",
+    "commit": "090bdfb",
+    "build": "release",
+    "lang": "es"
+  },
+  "file": {
+    "id": "A1",
+    "rows": 100000,
+    "cols": 20
+  },
+  "measure": "M-03",
+  "scenario": "S1-wheel-10s",
+  "cold": false,
+  "reps": [
+    {
+      "n": 1,
+      "ok": true,
+      "samples": 100,
+      "p50": 16.7,
+      "p95": 16.7,
+      "p99": 33.4,
+      "notes": ""
+    }
+  ],
+  "summary": {
+    "median_of_p95": 16.7,
+    "worst_p95": 16.7,
+    "median": 16.7,
+    "p95": 16.7,
+    "min": 16.7,
+    "max": 50.1
+  },
+  "invalidated": [],
+  "internal": {
+    "percentile": "nearest-rank",
+    "marks": [
+      {
+        "name": "launch",
+        "t_ms": 0.0
+      },
+      {
+        "name": "window_ready",
+        "t_ms": 85.25
+      },
+      {
+        "name": "open_request",
+        "t_ms": 90.0
+      },
+      {
+        "name": "first_data_frame",
+        "t_ms": 412.346
+      }
+    ],
+    "counters": {
+      "cells_in_list": 8400,
+      "placeholder_frames": 0
+    },
+    "histograms": {
+      "cells_drawn_per_frame": {
+        "count": 100,
+        "min": 2800.0,
+        "max": 2800.0,
+        "mean": 2800.0,
+        "p50": 2800.0,
+        "p95": 2800.0,
+        "p99": 2800.0
+      },
+      "draw_block_ms": {
+        "count": 4,
+        "min": 1.0,
+        "max": 3.0,
+        "mean": 2.0,
+        "p50": 1.5,
+        "p95": 3.0,
+        "p99": 3.0
+      },
+      "frame_interval_ms": {
+        "count": 100,
+        "min": 16.7,
+        "max": 50.1,
+        "mean": 17.201,
+        "p50": 16.7,
+        "p95": 16.7,
+        "p99": 33.4
+      }
+    }
+  }
+}

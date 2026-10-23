@@ -1,0 +1,31 @@
+{
+  "schema": "dokumentz-script-result/1",
+  "script": "nav-basico",
+  "app": "dokumentz-app-gpui",
+  "ok": true,
+  "steps": [
+    { "index": 0, "step": "open", "ok": true },
+    { "index": 1, "step": "wait_idle", "ok": true },
+    { "index": 2, "step": "mark", "ok": true },
+    { "index": 3, "step": "assert_cell", "ok": true,
+      "observed": { "type": "cell", "cell": "A1", "value": "Nombre", "formula": "Nombre" } },
+    { "index": 4, "step": "key", "ok": true },
+    { "index": 5, "step": "key", "ok": true },
+    { "index": 6, "step": "assert_selection", "ok": true,
+      "observed": { "type": "selection", "range": "A3:B3", "active": "A3" } },
+    { "index": 7, "step": "text", "ok": true },
+    { "index": 8, "step": "key", "ok": true },
+    { "index": 9, "step": "assert_cell", "ok": true,
+      "observed": { "type": "cell", "cell": "A3", "value": "hola", "formula": "hola" } },
+    { "index": 10, "step": "scroll", "ok": true },
+    { "index": 11, "step": "drag", "ok": true },
+    { "index": 12, "step": "assert_selection", "ok": true,
+      "observed": { "type": "selection", "range": "B2:D5", "active": "B2" } },
+    { "index": 13, "step": "assert_formula_bar", "ok": true,
+      "observed": { "type": "formula_bar", "text": "Total" } },
+    { "index": 14, "step": "wait_ms", "ok": true },
+    { "index": 15, "step": "key", "ok": true },
+    { "index": 16, "step": "save", "ok": true },
+    { "index": 17, "step": "quit", "ok": true }
+  ]
+}

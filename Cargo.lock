@@ -1678,20 +1678,33 @@ dependencies = [
 [[package]]
 name = "dokumentz-metrics"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+]
 
 [[package]]
 name = "dokumentz-script"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+]
 
 [[package]]
 name = "dokumentz-sheet"
 version = "0.1.0"
 dependencies = [
+ "dokumentz-metrics",
  "ironcalc",
  "ironcalc_base",
  "rust_xlsxwriter",
+ "serde",
  "serde_json",
  "tempfile",
+ "thiserror 2.0.21",
  "zip",
 ]
 

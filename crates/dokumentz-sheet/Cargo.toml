@@ -11,6 +11,17 @@ publish.workspace = true
 [dependencies]
 ironcalc.workspace = true
 ironcalc_base.workspace = true
+# Versiones ya fijadas en `Cargo.lock` (el `Cargo.toml` raíz no las declara; plan.md §5.1).
+serde = { version = "1.0.229", features = ["derive"] }
+thiserror = "2.0.21"
+# Instrumentación interna (FR-012, T030): solo con la característica `metrics`. Sin ella el crate
+# no depende de `dokumentz-metrics` (se comprueba con `cargo tree -p dokumentz-sheet -e normal`).
+dokumentz-metrics = { path = "../dokumentz-metrics", optional = true }
+
+[features]
+default = []
+# Spans de abrir, guardar, evaluar, `draw_block` y codificar (`Core::set_recorder`).
+metrics = ["dep:dokumentz-metrics"]
 
 [dev-dependencies]
 serde_json.workspace = true
@@ -19,3 +30,13 @@ serde_json.workspace = true
 rust_xlsxwriter.workspace = true
 tempfile = "3"
 zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
+
+# Bancos de T030 y T031: miden con el `Recorder` de `dokumentz-metrics`, así que exigen la
+# característica (sin ella `cargo build --all-targets` los omite).
+[[example]]
+name = "bench_drawlist"
+required-features = ["metrics"]
+
+[[example]]
+name = "bench_edit"
+required-features = ["metrics"]

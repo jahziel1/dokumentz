@@ -1,0 +1,12 @@
+{
+  "celdas": 2000000,
+  "consultas_row_y_row_at_14285_ms": 2.45,
+  "de_ello_dimension_ms": 8.79,
+  "filas_con_altura_propia": 100000,
+  "from_worksheet_ms_mediana_de_9": 9.21,
+  "ironcalc": "0.9.1",
+  "maquina": "Apple M1, 16 GB, macOS (ver research.md)",
+  "objetivo_ms": 20,
+  "perfil": "release",
+  "tarea": "T016"
+}

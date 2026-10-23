@@ -1,0 +1,91 @@
+{
+  "A_reintento_con_undo": {
+    "mediana_ms": 103.64,
+    "muestras_ms": [
+      103.64,
+      105.12,
+      104.13,
+      106.81,
+      98.57,
+      100.73,
+      97.81
+    ],
+    "razon_sobre_normal": 3.1
+  },
+  "A_reintento_con_undo_y_pausa": {
+    "mediana_ms": 67.85,
+    "muestras_ms": [
+      68.5,
+      70.25,
+      71.96,
+      67.09,
+      66.99,
+      67.85,
+      65.76
+    ],
+    "razon_sobre_normal": 2.03
+  },
+  "B_traduccion": {
+    "mediana_ms": 34.67,
+    "muestras_ms": [
+      34.37,
+      33.13,
+      35.25,
+      35.03,
+      34.67,
+      34.72,
+      33.64
+    ],
+    "razon_sobre_normal": 1.0
+  },
+  "criterio": "plan.md §5.7: (A) si teclear en el otro idioma cuesta <= 2x una edición normal; si no, (B)",
+  "edicion_normal_motor_en_bruto": {
+    "mediana_ms": 33.46,
+    "muestras_ms": [
+      32.65,
+      34.95,
+      35.33,
+      35.87,
+      31.81,
+      31.1,
+      33.46
+    ],
+    "razon_sobre_normal": 1.0
+  },
+  "edicion_normal_nucleo": {
+    "mediana_ms": 34.51,
+    "muestras_ms": [
+      34.4,
+      33.47,
+      34.51,
+      34.54,
+      34.79,
+      35.24,
+      33.83
+    ],
+    "razon_sobre_normal": 1.0
+  },
+  "editar_u1_con_10000_dependientes": {
+    "mediana_ms": 34.23,
+    "muestras_ms": [
+      34.23,
+      32.12,
+      34.62,
+      35.69,
+      36.21,
+      33.9,
+      33.83
+    ],
+    "razon_sobre_normal": 0.99
+  },
+  "elegida": "B (traduccion): (A) rompe Rehacer, ver la prueba el_reintento_con_undo_rompe_rehacer",
+  "libro": {
+    "abrir_ms": 1105.51,
+    "columnas": 20,
+    "filas": 100000,
+    "formulas_dependientes": 10000,
+    "generar_ms": 1733.4,
+    "idioma": "es",
+    "locale": "en"
+  }
+}

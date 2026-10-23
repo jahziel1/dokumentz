@@ -1,0 +1,181 @@
+{
+  "schema": "dokumentz-bench/1",
+  "run_id": "T030",
+  "criteria_sha": null,
+  "method": "internal",
+  "env": {
+    "os": "macos",
+    "arch": "aarch64"
+  },
+  "app": {
+    "id": "dokumentz-sheet-bench_drawlist",
+    "version": "0.1.0",
+    "build": "release",
+    "lang": "es"
+  },
+  "file": {
+    "id": "A1-sintetico",
+    "rows": 100000,
+    "cols": 20
+  },
+  "measure": "M-03",
+  "scenario": "bench_drawlist: recorrido de la hoja (nucleo, sin interfaz)",
+  "cold": false,
+  "reps": [
+    {
+      "n": 1,
+      "ok": true,
+      "samples": 3111,
+      "p50": 1.781,
+      "p95": 2.033,
+      "p99": 2.069,
+      "notes": ""
+    }
+  ],
+  "summary": {
+    "median_of_p95": 2.033,
+    "worst_p95": 2.033,
+    "median": 1.781,
+    "p95": 2.033,
+    "min": 0.454,
+    "max": 2.514
+  },
+  "invalidated": [],
+  "internal": {
+    "percentile": "nearest-rank",
+    "marks": [],
+    "counters": {
+      "cells_in_list": 6050472,
+      "draw_block_builds": 3111,
+      "draw_block_hits": 25399
+    },
+    "histograms": {
+      "apply_scroll_by_ms": {
+        "count": 28208,
+        "min": 0.0,
+        "max": 0.017,
+        "mean": 0.001,
+        "p50": 0.001,
+        "p95": 0.001,
+        "p99": 0.001
+      },
+      "bloque_bytes": {
+        "count": 3111,
+        "min": 18039.0,
+        "max": 66488.0,
+        "mean": 59695.167,
+        "p50": 65190.0,
+        "p95": 66038.0,
+        "p99": 66462.0
+      },
+      "cells_drawn_per_frame": {
+        "count": 28510,
+        "min": 530.0,
+        "max": 2226.0,
+        "mean": 1970.835,
+        "p50": 2120.0,
+        "p95": 2226.0,
+        "p99": 2226.0
+      },
+      "cells_per_block": {
+        "count": 3111,
+        "min": 530.0,
+        "max": 2226.0,
+        "mean": 1944.864,
+        "p50": 2120.0,
+        "p95": 2226.0,
+        "p99": 2226.0
+      },
+      "construir_diagonal_ms": {
+        "count": 300,
+        "min": 0.454,
+        "max": 1.775,
+        "mean": 0.55,
+        "p50": 0.511,
+        "p95": 0.694,
+        "p99": 1.662
+      },
+      "construir_final_ms": {
+        "count": 1,
+        "min": 0.601,
+        "max": 0.601,
+        "mean": 0.601,
+        "p50": 0.601,
+        "p95": 0.601,
+        "p99": 0.601
+      },
+      "construir_horizontal_ms": {
+        "count": 9,
+        "min": 0.886,
+        "max": 2.184,
+        "mean": 1.551,
+        "p50": 1.677,
+        "p95": 2.184,
+        "p99": 2.184
+      },
+      "construir_primero_ms": {
+        "count": 1,
+        "min": 1.175,
+        "max": 1.175,
+        "mean": 1.175,
+        "p50": 1.175,
+        "p95": 1.175,
+        "p99": 1.175
+      },
+      "construir_rueda_ms": {
+        "count": 2500,
+        "min": 0.62,
+        "max": 2.515,
+        "mean": 1.814,
+        "p50": 1.789,
+        "p95": 2.037,
+        "p99": 2.076
+      },
+      "construir_saltos_ms": {
+        "count": 300,
+        "min": 0.616,
+        "max": 1.979,
+        "mean": 1.42,
+        "p50": 1.57,
+        "p95": 1.868,
+        "p99": 1.902
+      },
+      "draw_block_ms": {
+        "count": 3111,
+        "min": 0.454,
+        "max": 2.514,
+        "mean": 1.653,
+        "p50": 1.781,
+        "p95": 2.033,
+        "p99": 2.069
+      },
+      "encode_ms": {
+        "count": 3111,
+        "min": 0.002,
+        "max": 0.035,
+        "mean": 0.007,
+        "p50": 0.007,
+        "p95": 0.008,
+        "p99": 0.013
+      },
+      "load_ms": {
+        "count": 1,
+        "min": 1041.616,
+        "max": 1041.616,
+        "mean": 1041.616,
+        "p50": 1041.616,
+        "p95": 1041.616,
+        "p99": 1041.616
+      },
+      "set_viewport_con_geometria_ms": {
+        "count": 1,
+        "min": 13.52,
+        "max": 13.52,
+        "mean": 13.52,
+        "p50": 13.52,
+        "p95": 13.52,
+        "p99": 13.52
+      }
+    }
+  }
+}
