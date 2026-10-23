@@ -140,7 +140,7 @@ Etiquetas de ejecutores `[VERIFICADO]` (github.com/actions/runner-images README)
 | 11 Umbrales | Resuelta en `spec.md`: se adoptan los propuestos y se congelan en `criteria.toml` antes de la primera corrida oficial (T049); no se cambian después de ver datos |
 | 12 Archivos A4 | **Resuelta (2026-10-22):** archivos del usuario + corpus públicos (Apache POI `test-data/spreadsheet`, Apache-2.0; LibreOffice `sc/qa/unit/data/xlsx`, MPL-2.0), incluidos `.xlsm`. Un manifiesto (`testdata/a4/manifest.toml`, que sí se versiona) lista fuente, licencia y SHA-256; los archivos van a `testdata/a4/` (ignorado por git). Nunca se ejecutan macros (T114, T115). **A4 alimenta SC-007** (T115–T118) y se informa por fuente (usuario / Apache POI / LibreOffice); sin A4 preparado, SC-007 queda `sin datos` |
 | 13 Alojamiento del repositorio | **Resuelta (2026-10-22): GitHub público** https://github.com/jahziel1/dokumentz (vacío, rama `main`). Ejecutores de Actions gratuitos sin límite de minutos por ser público. `git init` y el primer `push` se hacen en CP-0 con confirmación del dueño |
-| 15 y 16 Arquitectura de la suite y umbrales de SC-007 | **Resueltas (2026-10-22).** Hoja de ruta y arquitectura en `specs/000-arquitectura-suite/arquitectura.md`; nombres de producto (D-18); los umbrales de SC-007 se adoptan como propuesta (aclaración 16) y se congelan en `criteria.toml` junto a los de SC-001…SC-005 (T047, T049). Pendiente en 000: aplicación única o tres aplicaciones |
+| 15 y 16 Arquitectura de la suite y umbrales de SC-007 | **Resueltas (2026-10-22).** Hoja de ruta y arquitectura en `specs/000-arquitectura-suite/arquitectura.md`; nombres de producto (D-18); los umbrales de SC-007 se adoptan como propuesta (aclaración 16) y se congelan en `criteria.toml` junto a los de SC-001…SC-005 (T047, T049). Decidido en 000 (§4.4): tres aplicaciones, como Office |
 | Extensión de desplazamiento (nuevo, decisión del plan) | La extensión desplazable es el **rango usado** más una pantalla de holgura; crece si la selección sale de ella. «Hasta el final» en US1-5 significa la última fila con datos |
 
 ---
@@ -219,7 +219,7 @@ dokumentz/
 │   │   └── criteria.toml          # umbrales congelados (SC-001…SC-005 y SC-007)
 │   ├── corpus/                    # fetch.sh: descarga de los corpus públicos de A4 con hashes (T114; requiere visto bueno del dueño)
 │   └── ci/                        # listas de paquetes del SO, scripts de apoyo
-├── apps/                          # interfaces candidatas (la perdedora se borra al cerrar la fase 0; la ganadora es la semilla de apps/dokumentz)
+├── apps/                          # interfaces candidatas (la perdedora se borra al cerrar la fase 0; la ganadora es la semilla de apps/hoja)
 │   ├── tauri/
 │   │   ├── package.json  vite.config.ts  tsconfig.json  index.html
 │   │   ├── src/                   # TypeScript: main.ts drawlist.ts renderer.ts scroller.ts input.ts editor.ts ime.ts
@@ -242,7 +242,7 @@ dokumentz/
 └── .github/workflows/ci.yml
 ```
 
-**Qué crates de la base común llegan en la fase 1 (no se crean en esta PoC).** La arquitectura (000) prevé además `dokumentz-opc` (paquete de Office; conserva las partes que no entiende, como macros y gráficos aún no soportados), `dokumentz-drawing` (DrawingML compartido; fases 1–4), `dokumentz-text` (motor de texto común; lo decide la PoC 002 y al entrar se cierra EX-01), `dokumentz-render` (protocolo de dibujo genérico; la lista de dibujo de la cuadrícula de §5.4 se convertirá en su primer cliente), `dokumentz-edit` (comandos, deshacer/rehacer, selección y portapapeles con formatos) y `dokumentz-shell` (ventana, pestañas, cinta, menús y atajos, en la tecnología que gane la fase 0a), más `apps/dokumentz`, la aplicación final. `dokumentz-doc` nace en la PoC 002 (documentos) y `dokumentz-slide` en la fase 3. Hasta la fase 1, esas piezas comunes viven dentro de `dokumentz-sheet` (o, en el caso del texto, en cada interfaz, EX-01); su extracción a crates propios se planifica en la fase 1 según la arquitectura 000.
+**Qué crates de la base común llegan en la fase 1 (no se crean en esta PoC).** La arquitectura (000) prevé además `dokumentz-opc` (paquete de Office; conserva las partes que no entiende, como macros y gráficos aún no soportados), `dokumentz-drawing` (DrawingML compartido; fases 1–4), `dokumentz-text` (motor de texto común; lo decide la PoC 002 y al entrar se cierra EX-01), `dokumentz-render` (protocolo de dibujo genérico; la lista de dibujo de la cuadrícula de §5.4 se convertirá en su primer cliente), `dokumentz-edit` (comandos, deshacer/rehacer, selección y portapapeles con formatos) y `dokumentz-shell` (biblioteca de interfaz común: ventana de documento, cinta, menús y atajos, en la tecnología que gane la fase 0a), más las tres aplicaciones finales `apps/hoja`, `apps/documentos` y `apps/presentaciones`, como Office. `dokumentz-doc` nace en la PoC 002 (documentos) y `dokumentz-slide` en la fase 3. Hasta la fase 1, esas piezas comunes viven dentro de `dokumentz-sheet` (o, en el caso del texto, en cada interfaz, EX-01); su extracción a crates propios se planifica en la fase 1 según la arquitectura 000.
 
 Reglas del árbol:
 

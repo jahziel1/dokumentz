@@ -57,8 +57,8 @@ El dueño quiere la **suite completa** (hoja, documentos y presentaciones) como 
 
 ```
  ┌─────────────────────────────────────────────────────────────────────────────┐
- │ apps/dokumentz        binario final: UNA ventana con pestañas por documento │
- │                       [NECESITA ACLARACIÓN: app única o tres apps, ver 4.4] │
+ │ apps/hoja · apps/documentos · apps/presentaciones                           │
+ │   TRES apps, como Excel, Word y PowerPoint; un solo instalador (ver 4.4)    │
  ├─────────────────────────────────────────────────────────────────────────────┤
  │ dokumentz-shell       INTERFAZ (Tauri o GPUI, la que gane la PoC 001)       │
  │   ventana · pestañas · cinta · menús · diálogos · atajos por sistema        │
@@ -100,14 +100,14 @@ Sentido de las dependencias entre crates (A6): `shell → edit → {sheet, doc, 
 | `dokumentz-drawing` | DrawingML compartido: temas, colores, formas, imágenes y gráficos (el mismo vocabulario en `.xlsx`, `.docx` y `.pptx`). Los convierte en primitivas de `dokumentz-render` | No decide dónde va un gráfico en una hoja o en una página (eso es del motor); no acomoda texto por sí mismo | `opc`, `text`, `render` | Fases 1–4 (crece por tipo de objeto) | Por construir |
 | `dokumentz-text` | **Motor de texto común**: carga de fuentes, shaping, saltos de línea, bidireccional, párrafos. Lo usan celdas, páginas y diapositivas. La PoC 002 decide con qué candidatos se construye (sección 9). Al entrar, **se cierra EX-01** | No dibuja (entrega glifos ya acomodados al protocolo de dibujo); no conoce estilos de Office | `render` + bibliotecas de fuentes elegidas | Prototipo en la 0b; producto en fase 1 | Por construir |
 | `dokumentz-render` | Protocolo de dibujo genérico (rectángulos, texto ya acomodado, líneas, imágenes, recortes) y su formato binario. Lo consumen las tres apps a través de la misma interfaz | No contiene lógica de documento; no sabe qué es una celda o un párrafo | Nada interno | Fase 1 | Por construir. La lista de dibujo de la cuadrícula (`drawlist`, formato «PDL1», en `dokumentz-sheet`) es específica de la hoja y se convierte en su primer cliente |
-| `dokumentz-edit` | Comandos genéricos, deshacer/rehacer, selección, portapapeles con formatos (texto, TSV, HTML, imagen). Mantiene las sesiones de documento abiertas (una por pestaña) y enruta cada comando al motor activo | No interpreta teclas (eso es de la interfaz); no implementa operaciones propias de un tipo de documento | `sheet`, `doc`, `slide`, `render` | Fase 1 | Por construir (en la 001 los comandos viven en `dokumentz-sheet`, `command.rs`) |
+| `dokumentz-edit` | Comandos genéricos, deshacer/rehacer, selección, portapapeles con formatos (texto, TSV, HTML, imagen). Mantiene las sesiones de documento abiertas (una por ventana, como Office) y enruta cada comando al motor del documento | No interpreta teclas (eso es de la interfaz); no implementa operaciones propias de un tipo de documento | `sheet`, `doc`, `slide`, `render` | Fase 1 | Por construir (en la 001 los comandos viven en `dokumentz-sheet`, `command.rs`) |
 | `dokumentz-metrics` | Instrumentación: `Recorder`, `Span`, `Histogram`, JSON de resultados (esquema `dokumentz-bench/1`). Apagada por defecto, solo escribe un archivo local | Nada de red ni telemetría (principio I) | — | PoC 001 | PoC 001 (permanente, compartida) |
 | `dokumentz-script` | Guiones de prueba compartidos (`Step`, `Script`, `ScriptResult`) y el binario `dokumentz-script-check`. Garantiza que las interfaces hacen lo mismo | No conoce ninguna interfaz concreta | — | PoC 001 | PoC 001 (permanente) |
 | `dokumentz-sheet` | Motor de la hoja: envuelve IronCalc (`UserModel`) para fórmulas y `.xlsx`; geometría, vista de cuadrícula, navegación, edición, comandos, TSV | No hace gráficos, macros ni formas; no acomoda texto (hoy lo hace la interfaz por EX-01; mañana `dokumentz-text`) | PoC 001: `ironcalc*`, `serde`, `thiserror`, `metrics`. Fase 1: + `opc`, `text`, `render`, `drawing` | PoC 001 | PoC 001 |
 | `dokumentz-doc` | Documentos: modelo de `.docx` (WordprocessingML) y **paginación**. En la 0b solo lectura y dibujo; en la fase 2 edita y guarda | No hace formato de hoja ni diapositivas; no ejecuta macros | `opc`, `drawing`, `text`, `render` (+ el candidato que elija la 0b) | PoC 002 (0b) | Por construir |
 | `dokumentz-slide` | Presentaciones: diapositivas, texto, imágenes, formas, modo presentador | No hace paginación de flujo; no hace animaciones hasta la fase 4 | `opc`, `drawing`, `text`, `render` | Fase 3 | Por construir |
-| `dokumentz-shell` | Ventana, pestañas de documentos, cinta (con revisión legal previa, principio V), menús, diálogos, atajos por sistema. En la tecnología que gane la PoC 001 | No calcula, no acomoda texto, no lee archivos, no formatea números, no sabe de tipos de documento | `edit`, `render` (decodificar), `metrics` | Fase 1 | Por construir (semilla: la interfaz ganadora de la 001) |
-| `apps/dokumentz` | La aplicación final: empaqueta `shell` + núcleo | Sin lógica propia | `shell` y todo lo anterior | Fase 1 | Por construir |
+| `dokumentz-shell` | Biblioteca de interfaz común a las tres apps: ventana de documento, cinta (con revisión legal previa, principio V), menús, diálogos, atajos por sistema, pantalla de inicio y archivos recientes. En la tecnología que gane la PoC 001 | No calcula, no acomoda texto, no lee archivos, no formatea números, no sabe de tipos de documento | `edit`, `render` (decodificar), `metrics` | Fase 1 | Por construir (semilla: la interfaz ganadora de la 001) |
+| `apps/hoja`, `apps/documentos`, `apps/presentaciones` | Las **tres aplicaciones finales**, como Excel, Word y PowerPoint. Cada una empaqueta `shell` + el motor de su tipo de documento, tiene su propio ícono y se asocia a sus extensiones (`.xlsx`/`.xlsm`/`.csv`, `.docx`, `.pptx`). Un solo instalador instala las tres. Nombres comerciales por decidir, sin marcas de Microsoft | Sin lógica propia | `shell`, `edit` y el motor correspondiente | Fase 1 (hoja), 2 (documentos), 3 (presentaciones) | Por construir |
 | `apps/tauri`, `apps/gpui` (`dokumentz-app-tauri`, `dokumentz-app-gpui`) | Las dos interfaces candidatas de la 001, con FR-001…FR-013 idénticos | — | `dokumentz-sheet`, `metrics`, `script` | PoC 001 | PoC 001. **Una se borra** al decidir (sección 7) |
 
 ### 4.3 Herramientas (`tools/`)
@@ -122,19 +122,49 @@ Permanentes: cada fase mide velocidad **y** compatibilidad (A4).
 | `bench-runner`, `bench-report` | Medición externa idéntica para todas las apps y regla de decisión | PoC 001 |
 | Equivalente de `compat-check` para documentos | Mide fidelidad de paginación (sección 9). Nombre por decidir en la spec 002 | Por construir (0b) |
 
-### 4.4 Propuesta: una sola aplicación con pestañas
+### 4.4 Decisión: tres aplicaciones, como Office
 
-**Propuesta por defecto (decidida como punto de partida):** una única aplicación, `apps/dokumentz`, que abre hojas, documentos y presentaciones en **pestañas por documento**, como ONLYOFFICE Desktop (que al dueño le gustó).
+**Decidido por el dueño (2026-10-22): tres aplicaciones separadas**, igual que Excel, Word y PowerPoint, porque Dokumentz debe sentirse como Office y **la gente no debe notar el cambio** (sección 4.5). Se descartó la app única con pestañas al estilo ONLYOFFICE Desktop.
 
-`[NECESITA ACLARACIÓN: confirmar app única vs. tres apps separadas]`
+| Aspecto | Cómo queda |
+|---|---|
+| Instalación | **Un solo instalador** que instala las tres apps, como Office |
+| Ventanas | Una ventana por documento, como Office |
+| Íconos y asociaciones | Cada app tiene su ícono y abre sus extensiones al hacer doble clic (`.xlsx`/`.xlsm`/`.csv` → hoja; `.docx` → documentos; `.pptx` → presentaciones) |
+| Código compartido | Las tres usan los mismos crates (`crates/`): solo cambia `apps/`. `dokumentz-shell` es una biblioteca común |
+| Portapapeles entre apps | Por el portapapeles del sistema, con varios formatos a la vez (texto, TSV, HTML, imagen) que `dokumentz-edit` escribe y lee: copiar una tabla de la hoja y pegarla en un documento funciona como entre las apps de Office |
+| Ventaja | Cada app arranca solo con su motor; un fallo de una no cierra las demás; el modelo mental «Excel / Word / PowerPoint» se conserva |
+| Costo | Cada binario enlaza la base común, así que el tamaño instalado se suma; se mide (M-08) y, si rebasa su presupuesto, la base se comparte como biblioteca dinámica |
 
-| | App única (propuesta) | Tres apps separadas |
+### 4.5 Sentirse como Office: que la gente no note el cambio
+
+Es un requisito de producto (constitución, principio V), no un adorno. Se separa lo que **sí** puede ser igual de lo que **no** puede o todavía no será igual.
+
+**La vara mínima es ONLYOFFICE** (decidido por el dueño, 2026-10-22): quien lo usa no siente el cambio frente a Office, aunque no es idéntico píxel a píxel. Dokumentz debe igualar o superar ese nivel de familiaridad (estructura de la cinta, nombres, atajos, comportamientos) y ser más rápido. ONLYOFFICE se usa como referencia de experiencia y como juez lado a lado en las revisiones de paridad; **no** se copia su código ni sus íconos (principio VII).
+
+**Igual que Office (obligatorio en cada fase):**
+- Las mismas pestañas de la cinta, en el mismo orden y con los **mismos nombres que Office en español**; cada botón en el grupo donde la gente lo busca de memoria.
+- Los mismos **atajos de teclado** de cada sistema (Cmd en macOS; Ctrl, F2, Alt para navegar la cinta en Windows y Linux).
+- Los mismos **comportamientos**: rellenar arrastrando, autocompletar, brocha de formato, pegado especial, menú del clic derecho, Intro/Tab al editar, deshacer.
+- **Funciones en el idioma del usuario** (=SUMA, =BUSCARV) y los mismos mensajes de error de celda (`#¡DIV/0!`, `#N/D`).
+- **Integración con el sistema**: doble clic en el archivo abre la app correcta, «Abrir con», archivos recientes, recuperación tras un cierre inesperado, diálogo de imprimir.
+- **Archivos de Office como nativos** (principio IV): guardar no convierte ni pregunta formatos.
+
+**No puede ser idéntico (riesgo legal, principio V):**
+- Íconos, colores, logotipos y el dibujo exacto de la cinta: el diseño visual es propio. La estructura (pestañas, grupos, nombres de función, atajos) sí sigue a Office. Antes de construir la cinta se revisa con asesoría legal.
+- Los nombres «Excel», «Word», «PowerPoint» y «Office» no se usan.
+
+**Lo que la gente podría notar y cómo se trata (riesgos abiertos):**
+
+| Diferencia | Por qué | Cómo se reduce |
 |---|---|---|
-| A favor | Pegar de la hoja al documento o a la diapositiva sin salir; una sola cinta, un instalador, una actualización; pestañas con tipos mezclados | Cada app arranca más ligera; un fallo no arrastra a las demás; el modelo mental «Excel / Word / PowerPoint» |
-| En contra | El arranque debe medirse con los tres motores enlazados (carga perezosa por tipo de documento); un cierre inesperado afecta a todas las pestañas | Tres instaladores y tres ventanas; el portapapeles entre apps depende del sistema operativo, no de Dokumentz |
-| Qué cambia en esta arquitectura | Nada en `crates/`. Solo `apps/` | Lo mismo: `dokumentz-shell` se reutiliza y se compilan tres binarios que activan un solo motor |
+| **Fuentes de Microsoft** (Calibri, Cambria, Aptos y otras) | Son fuentes con licencia de Microsoft; no se pueden incluir en Dokumentz. Si faltan en el equipo, el texto se reacomoda y los documentos se ven distintos | Usar las del sistema si están instaladas (por ejemplo, por Office); si no, sustitutas libres con las mismas medidas cuando existan (Carlito para Calibri, Caladea para Cambria). Para Aptos no hay sustituta conocida verificada: `[HIPÓTESIS]`, se investiga en la PoC 002 |
+| Funciones que todavía no existen | Se construye por fases | Las compuertas miden compatibilidad con archivos reales (SC-007 y equivalentes); lo no soportado se conserva al guardar (A3) y se avisa |
+| Macros | Llegan en la fase 5 | Se conservan intactas desde la fase 1 y se avisa que no se ejecutan |
+| Nube y coautoría en tiempo real (OneDrive, compartir enlace) | Fuera del alcance por decisión: Dokumentz es local y sin cuentas (principio I). El dueño confirmó el 2026-10-22 que **no es prioridad por ahora** | Si se quiere colaborar más adelante, hacerlo sin nube propia (*local-first*); requiere enmienda y no se planea por ahora |
+| Copilot y funciones de IA en la nube | Fuera del alcance (sin red ni cuentas) | — |
 
-La decisión **no bloquea** las fases 0a ni 0b; debe cerrarse antes de empezar la fase 1.
+Cada fase incluye en su spec una **lista de paridad con Office** (qué se comporta igual, qué no y por qué), revisada con personas que usan Office a diario.
 
 ---
 
@@ -194,11 +224,11 @@ La decisión **no bloquea** las fases 0a ni 0b; debe cerrarse antes de empezar l
 | `dokumentz-metrics`, `dokumentz-script`, `dokumentz-script-check` | **Se quedan** (transversales, compartidos por las tres apps) |
 | `testdata-gen`, `xlsx-diff`, `compat-check`, `bench-runner`, `bench-report` y `criteria.toml` | **Se quedan** como herramientas permanentes |
 | `tests/functional/` (guiones JSON), `tests/fixtures/`, CI de 3 SO, `deny.toml` | **Se quedan** |
-| Interfaz **ganadora** de la regla de decisión (`apps/tauri` o `apps/gpui`) | **Se queda** y es la semilla de `dokumentz-shell` y `apps/dokumentz` |
+| Interfaz **ganadora** de la regla de decisión (`apps/tauri` o `apps/gpui`) | **Se queda** y es la semilla de `dokumentz-shell` y de `apps/hoja` |
 | Interfaz **perdedora** | **Se descarta** (se borra del árbol; el historial de git la conserva y `decision.md` registra por qué). **Es lo único que se descarta** |
 | Excepción EX-01 | Caduca al cierre de la fase 0: se cierra cuando `dokumentz-text` entra en la fase 1 |
 
-Advertencia honesta: la interfaz ganadora de la 001 no tiene cinta, ni pestañas por documento, ni más tipos que la hoja. Es una semilla, no el producto: la fase 1 la reorganiza en `dokumentz-shell`.
+Advertencia honesta: la interfaz ganadora de la 001 no tiene cinta, ni pantalla de inicio, ni más tipos que la hoja. Es una semilla, no el producto: la fase 1 la reorganiza en `dokumentz-shell`.
 
 ---
 
@@ -294,7 +324,7 @@ El plan B no cambia las capas de arriba: `dokumentz-doc` se reemplaza detrás de
 
 - La 0b y su plan B fallan: la suite pasaría a «hoja + visor de documentos y presentaciones».
 - `dokumentz-text` no puede servir a celdas y a páginas a la vez: dos motores de texto, y se revisa la base común.
-- El arranque de la app única, con los tres motores enlazados, rebasa su presupuesto aun con carga perezosa: tres apps (la decisión de la sección 11).
+- El tamaño instalado de las tres apps (cada una enlaza la base común) rebasa su presupuesto: la base se comparte como biblioteca dinámica.
 - El protocolo de dibujo se vuelve el cuello de botella en la interfaz ganadora (copias por el puente en Tauri): se replantea el formato.
 - SC-007 (b) < 90 % y ninguna alternativa de motor de fórmulas mejora: se replantea el motor de la hoja.
 
@@ -302,10 +332,6 @@ El plan B no cambia las capas de arriba: `dokumentz-doc` se reemplaza detrás de
 
 ## 11. Decisiones pendientes
 
-Solo una:
+Ninguna. La última (app única o tres apps) se resolvió el 2026-10-22: **tres apps, como Office** (sección 4.4). Quedan por decidir más adelante, sin bloquear nada ahora: los nombres comerciales de las tres apps (sin marcas de Microsoft) y la revisión legal de la cinta (antes de la fase 1).
 
-| Decisión | Opciones | Propuesta por defecto | Cuándo | Quién |
-|---|---|---|---|---|
-| `[NECESITA ACLARACIÓN: confirmar app única vs. tres apps separadas]` | (a) una app con pestañas por documento; (b) tres apps | (a) app única, como ONLYOFFICE Desktop | Antes de empezar la fase 1; no bloquea 0a ni 0b | Dueño del proyecto |
-
-Todo lo demás de este documento está decidido (2026-10-22). Cualquier cambio a una decisión cerrada se trata como enmienda propuesta por escrito, con datos (Gobierno, regla 3).
+Todo este documento está decidido (2026-10-22). Cualquier cambio a una decisión cerrada se trata como enmienda propuesta por escrito, con datos (Gobierno, regla 3).

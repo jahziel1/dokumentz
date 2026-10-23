@@ -327,7 +327,7 @@ La numeración se conserva porque el resto del documento remite a ella.
 12. **A4:** el usuario aporta archivos propios (los copia a la carpeta local de A4; ruta por confirmar al preparar la etapa) y se suman corpus públicos con licencia compatible, incluidos libros con macros (sección 7). Descargar los corpus requiere el visto bueno del dueño con la lista de archivos, fuente y tamaño. Los archivos de internet se tratan como no confiables: la aplicación no ejecuta macros y nadie los abre en Excel con macros habilitadas.
 13. **Repositorio:** GitHub público, https://github.com/jahziel1/dokumentz (vacío al 2026-10-22). Inicializar git y subir el primer cambio se hace en CP-0, con confirmación del dueño.
 14. **EX-01:** aprobada por el dueño (plan.md §3); caduca al cerrar la fase 0.
-15. **Arquitectura de la suite (2026-10-22):** el dueño aprobó la suite completa con la hoja de ruta 0a/0b/1…5 de [`../000-arquitectura-suite/arquitectura.md`](../000-arquitectura-suite/arquitectura.md), la incorporación de US5/FR-014/M-09/SC-007 a esta PoC y los nombres de producto (`dokumentz-*`). Queda pendiente allí la confirmación de aplicación única frente a tres aplicaciones.
+15. **Arquitectura de la suite (2026-10-22):** el dueño aprobó la suite completa con la hoja de ruta 0a/0b/1…5 de [`../000-arquitectura-suite/arquitectura.md`](../000-arquitectura-suite/arquitectura.md), la incorporación de US5/FR-014/M-09/SC-007 a esta PoC y los nombres de producto (`dokumentz-*`). También decidió (2026-10-22) que serán **tres aplicaciones separadas, como Excel, Word y PowerPoint**, para que la gente no note el cambio (000, §4.4–4.5).
 
 ### Resueltas por defecto (2026-10-22; se pueden cambiar registrando el cambio aquí)
 
