@@ -1,7 +1,7 @@
 # Constitución del proyecto
 
-**Versión:** 1.1.0 · **Fecha de adopción:** 2026-10-22 · **Última enmienda:** 2026-10-22 · **Repositorio:** https://github.com/jahziel1/dokumentz
-**Aplica a:** todas las fases de la hoja de ruta (0 PoC → 1 hoja básica → 2 hoja para el día a día → 3 procesador de textos → 4 presentaciones → 5 macros) y a todos los documentos y agentes que trabajen en el proyecto.
+**Versión:** 1.1.1 · **Fecha de adopción:** 2026-10-22 · **Última enmienda:** 2026-10-22 · **Repositorio:** https://github.com/jahziel1/dokumentz
+**Aplica a:** todas las fases de la hoja de ruta de la suite (definida en `specs/000-arquitectura-suite/arquitectura.md`: 0a PoC hoja → 0b PoC documentos → 1 base común + hoja básica → 2 documentos → 3 presentaciones → 4 día a día en las tres → 5 macros) y a todos los documentos y agentes que trabajen en el proyecto.
 
 ## Propósito
 
@@ -164,3 +164,4 @@ Esta constitución recoge los principios que **no se negocian**. Si una especifi
 |---|---|---|
 | 1.0.0 | 2026-10-22 | Adopción inicial con nueve principios (I–IX) y gobierno. La licencia del proyecto queda pendiente. |
 | 1.1.0 | 2026-10-22 | MINOR, aprobada por el dueño: licencia del proyecto MIT OR Apache-2.0; se prohíben también las dependencias GPL y LGPL; se registra el repositorio público `jahziel1/dokumentz`. |
+| 1.1.1 | 2026-10-22 | PATCH: la hoja de ruta citada pasa a ser la de la arquitectura de la suite (`specs/000-arquitectura-suite/arquitectura.md`), aprobada por el dueño. Sin cambios en los principios. |

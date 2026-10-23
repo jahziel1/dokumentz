@@ -27,7 +27,10 @@ Este documento reúne las decisiones técnicas ya tomadas por el usuario o deriv
 | D-12 | Línea base de ONLYOFFICE inspeccionada en el Mac del usuario | Datos |
 | D-13 | Rendimiento en hardware real; CI y máquinas virtuales solo funcional | Cerrada |
 | D-14 | Diseño visual propio, no un calco de Office | Cerrada |
-| D-15 | Licencias de las dependencias principales | Verificación pendiente en el plan |
+| D-15 | Licencias de las dependencias principales | Verificación pendiente en el plan (IronCalc, `calamine` y `rust_xlsxwriter` ya verificados) |
+| D-16 | Arquitectura de la suite; IronCalc como pieza y no como «el motor» | Cerrada (desarrollada en `../000-arquitectura-suite/arquitectura.md`) |
+| D-17 | Método de compatibilidad con los valores que Excel guardó en el archivo (`calamine`) | Propuesta (los umbrales de SC-007 se adoptan por defecto, como los de SC-001…SC-006) |
+| D-18 | Nombres de producto en lugar de `poc-*` | Cerrada |
 
 ---
 
@@ -60,13 +63,14 @@ Este documento reúne las decisiones técnicas ya tomadas por el usuario o deriv
 - Está escrito en Rust y trae lógica de interfaz ya hecha en `ironcalc_base::UserModel`: `set_user_input`, `get_formatted_cell_value`, `get_cell_content`, `get_cell_style`, `undo`/`redo`, `evaluate`, `pause_evaluation`/`resume_evaluation`, selección y navegación (`set_selected_cell`, `set_selected_range`, `on_arrow_*`, `on_page_up/down`, `on_navigate_to_edge_in_direction`, `on_expand_selected_range`, `set_top_left_visible_cell`, `get_scroll_x/y`), tamaños (`get_column_width`, `get_row_height`…), hojas (`new_sheet`, `rename_sheet`, `get_worksheets_properties`…), `formula_completion`, `to_bytes`/`from_bytes` y `flush_send_queue`/`apply_external_diffs`.
 - Idiomas de funciones: en, es, fr, de, it, e incluye `BUSCARV`, `BUSCARX`, `SI.ERROR` y `CONTAR.SI` (`generate_language/src/languages.json`), lo que cubre FR-006.
 - Lee y escribe `.xlsx`: el módulo `ironcalc::import` ofrece `load_from_xlsx`, `load_from_xlsx_bytes` y `load_from_icalc`; `ironcalc::export::save_to_xlsx(&model, path)` guarda. `Model::new_empty(name, locale, timezone, language)` crea un libro.
-- Licencia permisiva (GitHub indica Apache-2.0; el README indica doble MIT/Apache-2.0). Financiado por NLnet.
+- Licencia permisiva: **MIT OR Apache-2.0**, verificada en crates.io (0.9.1) y en los archivos `LICENSE-MIT` y `LICENSE-Apache-2.0` del repositorio (D-15). Financiado por NLnet.
 
 **Riesgos que la PoC mide o vigila.**
 - Es **pre-1.0**: la API puede cambiar; por eso se fija la versión.
-- La documentación de `pause_evaluation`/`resume_evaluation` y la evaluación automática no dice si el recálculo es **incremental**: se mide en M-05.
+- **Reevalúa todo el libro en cada edición** (verificado en el código de v0.9.1: `UserModel::set_user_input` llama a `evaluate_if_not_paused`, que llama a `Model::evaluate`, y cada pasada de `run_pass` recorre todas las posiciones con fórmula). No es incremental: el costo de M-05 crece con el número de fórmulas del libro y no solo con las dependientes. `pause_evaluation`/`resume_evaluation` permite agrupar ediciones. M-05 lo mide.
+- Es **la calculadora de la hoja, no el motor de la suite** (D-16). Cuántas de sus funciones calculan igual que Excel no se sabe: lo mide SC-007 (D-17).
 - La fidelidad de ida y vuelta del `.xlsx` se mide con SC-005.
-- La discrepancia de licencia entre GitHub y el README se resuelve revisando los archivos `LICENSE` del repositorio antes de depender de él (D-15).
+- La discrepancia de licencia entre GitHub y el README quedó resuelta: es doble MIT OR Apache-2.0 (D-15). Falta auditar las licencias de las dependencias transitivas con `cargo deny` en CI.
 
 **Alternativas consideradas.**
 - *Motor propio*: descartada, es trabajo enorme y no responde las preguntas de la PoC.
@@ -79,6 +83,7 @@ Este documento reúne las decisiones técnicas ya tomadas por el usuario o deriv
 - `UserModel`: https://docs.rs/ironcalc_base/latest/ironcalc_base/struct.UserModel.html
 - Módulo `import` (versión 0.9.1 y nombres de funciones, verificado el 2026-10-22): https://docs.rs/ironcalc/latest/ironcalc/import/index.html
 - Idiomas: `generate_language/src/languages.json` en el repositorio.
+- Evaluación completa en cada edición (v0.9.1): https://github.com/ironcalc/IronCalc/blob/v0.9.1/base/src/evaluation.rs (`Model::evaluate`, `run_pass`) y https://github.com/ironcalc/IronCalc/blob/v0.9.1/base/src/user_model/common.rs (`evaluate_if_not_paused`).
 
 ---
 
@@ -357,7 +362,9 @@ Este documento reúne las decisiones técnicas ya tomadas por el usuario o deriv
 
 | Dependencia | Licencia según las fuentes consultadas | Verificación pendiente |
 |---|---|---|
-| IronCalc 0.9.1 | GitHub indica Apache-2.0; el README indica doble MIT/Apache-2.0 | Revisar los archivos `LICENSE` y las licencias de sus dependencias |
+| IronCalc 0.9.1 | **MIT OR Apache-2.0.** Verificado el 2026-10-22: crates.io lo declara para la versión 0.9.1 (publicada el 2026-10-21), y el repositorio contiene `LICENSE-MIT` (MIT, «Copyright 2023 EqualTo GmbH») y `LICENSE-Apache-2.0` (Apache License 2.0). La discrepancia previa (GitHub mostraba solo Apache-2.0) queda resuelta | Auditar las licencias de las dependencias transitivas (`cargo deny check licenses` en CI) |
+| `calamine` 0.37.0 | **MIT** (crates.io, publicada el 2026-10-18; el README también indica MIT) | Auditar sus dependencias transitivas con `cargo deny` |
+| `rust_xlsxwriter` 0.101.0 | **MIT OR Apache-2.0** (docs.rs, 2026-10-22). Solo para archivos de prueba de `tools/compat-check` y del generador | Auditar sus dependencias transitivas con `cargo deny` |
 | GPUI | Apache-2.0 (`license = "Apache-2.0"` en `crates/gpui/Cargo.toml`) | El repositorio de Zed es, en su conjunto, principalmente GPL-3.0-or-later «con componentes Apache-2.0 donde se indica». **Verificado el 2026-10-22 en la rama principal:** todas las dependencias internas directas de `gpui` dentro del espacio de trabajo de Zed son Apache-2.0 (`bench_metrics`, `collections`, `gpui_macros`, `gpui_platform`, `gpui_shared_string`, `gpui_util`, `http_client`, `path`, `refineable`, `reqwest_client`, `scheduler`, `sum_tree`, `util_macros`). Falta repetir la auditoría **transitiva** en el commit fijado (con `cargo deny check licenses` en CI) |
 | Tauri 2 | El README indica doble MIT y Apache-2.0 | Auditar crates transitivos |
 | ONLYOFFICE | AGPL-3.0, no se usa su código | — |
@@ -365,11 +372,91 @@ Este documento reúne las decisiones técnicas ya tomadas por el usuario o deriv
 **Observación para la privacidad.** Según el manifiesto de `gpui` en la rama principal (2026-10-22), `gpui` depende del crate `http_client`. El plan debe comprobar en el commit fijado que la aplicación no abre conexiones de red (Constitución, principio I).
 
 **Fuentes.**
-- IronCalc: https://github.com/ironcalc/IronCalc
+- IronCalc: https://github.com/ironcalc/IronCalc · https://crates.io/api/v1/crates/ironcalc · https://raw.githubusercontent.com/ironcalc/IronCalc/main/LICENSE-MIT · https://raw.githubusercontent.com/ironcalc/IronCalc/main/LICENSE-Apache-2.0
+- `calamine`: https://crates.io/api/v1/crates/calamine · https://github.com/tafia/calamine
+- `rust_xlsxwriter`: https://docs.rs/rust_xlsxwriter/latest/rust_xlsxwriter/struct.Formula.html
 - Zed (README, licencias): https://github.com/zed-industries/zed
 - `gpui`: https://raw.githubusercontent.com/zed-industries/zed/main/crates/gpui/Cargo.toml
 - Tauri: https://github.com/tauri-apps/tauri
 - ONLYOFFICE: repositorios de D-04.
+
+---
+
+## D-16 — Arquitectura de la suite; IronCalc como pieza y no como «el motor»
+
+**Decisión.** Dokumentz se construye como **una suite** (hoja, documentos, presentaciones) con una **base común** compartida y un **motor por tipo de documento**, no como una PoC suelta ni como «un solo motor». IronCalc es la calculadora de la hoja (vive dentro de `dokumentz-sheet`); no es el motor de la suite. La PoC 001 construye **piezas de producto** (`dokumentz-sheet`, `dokumentz-metrics`, `dokumentz-script` y las herramientas), no un instrumento desechable; solo la interfaz perdedora se descarta. La arquitectura completa, las capas, las fases y la hoja de ruta están en [`../000-arquitectura-suite/arquitectura.md`](../000-arquitectura-suite/arquitectura.md); aquí solo se registra la razón y los hechos. `[NECESITA ACLARACIÓN: confirmar aplicación única con pestañas frente a tres aplicaciones separadas; propuesta por defecto: aplicación única (000).]`
+
+**Por qué.**
+- **Ninguna suite real es «un solo motor».** Microsoft Office tiene motores distintos para Excel, Word y PowerPoint sobre una base común compartida; LibreOffice tiene Calc, Writer e Impress sobre módulos comunes. En el ONLYOFFICE instalado en el Mac del usuario (D-12, inspección local), `sdkjs/common` pesa 37 MB, más que `word` (10 MB) y `cell` (11 MB) juntos: lo compartido es lo más grande.
+- **No existe un motor completo, rápido, fiel, local y permisivo.** Los únicos motores completos existentes son LibreOffice (fidelidad y aspecto que no convencieron; C++ enorme; MPL-2.0 más LGPL; LibreOfficeKit entrega teselas con API experimental, D-05) y ONLYOFFICE (JavaScript, lento; AGPL-3.0, D-04). Ese es el hueco que llena Dokumentz.
+- **IronCalc solo cubre la hoja.** Versión 0.9.1, MIT OR Apache-2.0 (D-15); su tabla de idiomas lista 497 nombres de funciones (Excel tiene alrededor de 500); **no se sabe cuántas calculan igual que Excel** (se mide en SC-007, D-17); reevalúa todo el libro en cada edición (D-02).
+- **Riesgos de la versión anterior de la PoC que esto corrige:** (a) la PoC era un instrumento desechable; (b) IronCalc se veía como «el motor» y es solo la calculadora; (c) lo más difícil de la suite (paginar documentos con fidelidad a Word) quedaba para el final, por lo que se adelanta la PoC 002 de documentos (000, fase 0b); (d) la PoC medía velocidad e interfaz pero no el motivo original del proyecto: que las alternativas **no abren bien los archivos de la gente** (además: LibreOffice se siente viejo y descuadra; Google lo logra pero en la nube; hay que cubrir el día a día, incluidas las macros; debe sentirse como Office, como ONLYOFFICE, pero rápido). Lo último se mide ahora con SC-007.
+- **Licencia:** el proyecto es MIT OR Apache-2.0 y se prohíben las dependencias GPL, LGPL y AGPL (Constitución v1.1.0), lo que descarta incrustar LibreOffice o ONLYOFFICE como motor de la suite.
+
+**Alternativas consideradas.**
+- *PoC como instrumento desechable y rehacer todo en la fase 1:* descartada, tira trabajo y aplaza lo difícil.
+- *Tres aplicaciones totalmente separadas sin base común:* descartada, duplica el motor de texto, el dibujo y el paquete de Office, que es justo lo que las suites reales comparten.
+- *LibreOfficeKit como motor de documentos:* no se descarta; se compara en la PoC 002 (D-05 sigue cerrada para la PoC 001).
+
+**Fuentes.**
+- Arquitectura y hoja de ruta: `../000-arquitectura-suite/arquitectura.md`.
+- Inspección local de ONLYOFFICE 10.0.0 (D-12); LibreOfficeKit: https://docs.libreoffice.org/libreofficekit.html
+- IronCalc: https://crates.io/api/v1/crates/ironcalc · https://github.com/ironcalc/IronCalc · evaluación completa en cada edición: https://github.com/ironcalc/IronCalc/blob/v0.9.1/base/src/evaluation.rs
+- La estructura interna de Office y de LibreOffice (motores por aplicación sobre una base común) es un hecho aportado por el dueño; no tiene fuente primaria citada aquí (ver «Hechos sin verificar»).
+
+---
+
+## D-17 — Método de compatibilidad con los valores que Excel guardó en el archivo
+
+**Decisión.** La compatibilidad del motor (US5, FR-014, M-09, SC-007) se mide **sin necesitar Excel**: los `.xlsx` guardan, junto a cada fórmula, el último resultado que calculó el programa que los produjo. `tools/compat-check` abre cada archivo de A4 con el motor de la hoja, lo recalcula y compara cada celda con fórmula contra el valor guardado, **solo en archivos producidos por Excel**. El lector de los valores guardados y de las fórmulas es **independiente del motor**: `calamine` 0.37.0 (MIT). El detalle del procedimiento está en `plan.md` §9.
+
+**Por qué.**
+- **Lector independiente.** Si el mismo motor leyera el valor esperado, se compararía consigo mismo. `calamine` es un lector puro de Rust (xls, xlsx, xlsm, xlsb, ods), licencia MIT, versión 0.37.0 publicada el 2026-10-18, sin ejecutar macros.
+- **Verificado: `calamine` 0.37.0 devuelve el valor guardado de las celdas con fórmula.** (1) La documentación de `XlsxCellFormula` describe el campo `value` como «Literal or cached value associated with the cell» y el campo `formula` como el texto de la fórmula; `XlsxCellReader::next_cell_with_formula` devuelve «cached or literal value» más la fórmula expandida (https://docs.rs/calamine/0.37.0/calamine/struct.XlsxCellFormula.html y https://docs.rs/calamine/0.37.0/calamine/struct.XlsxCellReader.html). (2) Prueba local el 2026-10-22 con `calamine` 0.37.0 y `rust_xlsxwriter` 0.101.0: un libro con A1=2, B1=3 y `=A1+B1` con resultado guardado forzado a 7 devolvió `Float(7.0)` en `worksheet_range` (no 5, que es lo que calcularía un motor) y `A1+B1` (sin el signo igual) en `worksheet_formula`; igual con `Worksheet::set_formula_result`. Es decir, `worksheet_range` entrega el valor guardado y `worksheet_formula` entrega el texto de la fórmula.
+- **Detección del productor.** El campo `Application` de `docProps/app.xml` nombra la aplicación que creó el archivo (es la primera de las propiedades extendidas de ECMA-376). Un libro guardado por Excel trae «Microsoft Excel» (https://forum.aspose.com/t/application-xml-node-in-app-xml-is-empty-for-new-workbooks/227999). Los archivos de LibreOffice, Apache POI u otro productor se **informan aparte**: su valor guardado no es el de Excel. El valor exacto que escriben POI y LibreOffice **no se verificó** aquí; se confirma con los archivos de A4.
+- **Funciones volátiles.** Las funciones cuyo resultado depende del reloj o del azar no pueden coincidir con el valor guardado (el archivo se guardó en otro momento): `HOY`/`TODAY`, `AHORA`/`NOW`, `ALEATORIO`/`RAND`, `ALEATORIO.ENTRE`/`RANDBETWEEN` y `RANDARRAY`. `CELL` e `INFO` son volátiles según sus argumentos y dependen del entorno. Se excluyen de (b) y se cuentan aparte; `DESREF`/`OFFSET` e `INDIRECTO`/`INDIRECT` también son volátiles para el recálculo pero son **deterministas**, así que sí se comparan. Lista de funciones volátiles: https://exceljet.net/glossary/volatile-function (fuente secundaria; no se encontró la página equivalente de Microsoft).
+- **Tolerancias (decididas).** Números con tolerancia relativa 1e-9; texto y booleanos exactos; errores del mismo tipo (`#DIV/0!`, `#N/A`, `#NAME?`, `#REF!`, `#VALUE!`…).
+- **Seguridad.** `calamine` solo lee; la herramienta nunca ejecuta macros ni abre los archivos en Excel. Los archivos de internet son no confiables (spec, aclaración 12).
+- **Fixtures de la herramienta.** `.xlsx` pequeños generados con `rust_xlsxwriter` (MIT OR Apache-2.0) usando `Formula::set_result` o `Worksheet::set_formula_result` para fijar el valor guardado, de modo que haya coincidencias y discrepancias conocidas (autoprueba).
+
+**Limitación conocida (verificada) del campo `Application`.** Las bibliotecas que generan `.xlsx` copian la cadena «Microsoft Excel»: `rust_xlsxwriter` 0.101.0 escribe `<Application>Microsoft Excel</Application>`, `AppVersion` 12.0000 y además `fullCalcOnLoad="1"` en `xl/workbook.xml` (comprobado en un archivo generado localmente el 2026-10-22), y XlsxWriter (Python) escribe la misma cadena (https://raw.githubusercontent.com/jmcnamara/XlsxWriter/main/xlsxwriter/app.py). Un archivo así parecería «producido por Excel» aunque sus valores guardados no sean de Excel (por defecto guardan 0 hasta que se recalcula). **Resuelto por defecto (2026-10-22):** se añade una segunda señal. Un archivo con `Application` «Microsoft Excel» se clasifica `generador_sospechoso` si trae `fullCalcOnLoad="1"` en `calcPr` o si ninguna celda con fórmula trae valor guardado; esos archivos no entran en M-09(b) y se informan aparte (`plan.md` §9.10, paso 1). `AppVersion` no se usa como señal porque varía entre versiones de Excel.
+
+**Alternativas consideradas.**
+- *Comparar contra Excel real ejecutándolo (automatización):* descartada como método principal; Excel es opcional (spec), la automatización es frágil y abrir archivos de internet en Excel con macros es un riesgo. Si Excel está disponible puede servir de verificación puntual.
+- *Comparar contra LibreOffice (recalcular con LibreOffice como juez):* es un juez de compatibilidad (D-05), pero sus resultados no son los de Excel; no sustituye al valor guardado por Excel.
+- *Leer los valores esperados con el propio IronCalc:* descartada, no es independiente.
+- *Otros lectores de `.xlsx` en Rust:* no se evaluaron; `rust_xlsxwriter` solo escribe.
+
+**Fuentes.**
+- `calamine`: https://crates.io/api/v1/crates/calamine · https://docs.rs/calamine/0.37.0/calamine/struct.XlsxCellFormula.html · https://docs.rs/calamine/0.37.0/calamine/struct.XlsxCellReader.html · https://docs.rs/calamine/0.37.0/calamine/enum.Data.html · https://github.com/tafia/calamine
+- Código de lectura de `<f>` y `<v>`: https://raw.githubusercontent.com/tafia/calamine/master/src/xlsx/cells_reader.rs
+- `rust_xlsxwriter` (`Formula::set_result`, `Worksheet::set_formula_result`): https://docs.rs/rust_xlsxwriter/latest/rust_xlsxwriter/struct.Formula.html · https://docs.rs/rust_xlsxwriter/0.101.0/rust_xlsxwriter/worksheet/struct.Worksheet.html
+- Campo `Application` de `docProps/app.xml`: https://forum.aspose.com/t/application-xml-node-in-app-xml-is-empty-for-new-workbooks/227999 · https://raw.githubusercontent.com/jmcnamara/XlsxWriter/main/xlsxwriter/app.py · https://www.libreoffice.org/bugzilla/show_bug.cgi?id=89775 (lista las propiedades extendidas de ECMA-376; la primera es `Application`). La definición normativa está en ECMA-376 parte 1; no se consultó directamente.
+- Funciones volátiles: https://exceljet.net/glossary/volatile-function
+- Corpus de A4: D-15.
+
+---
+
+## D-18 — Nombres de producto en lugar de `poc-*`
+
+**Decisión.** Como la PoC construye piezas de producto (D-16), los crates, herramientas y esquemas llevan nombres de producto y no el prefijo `poc-`. Los nombres antiguos no deben reaparecer en la documentación ni en el código.
+
+| Antes | Ahora | Qué es |
+|---|---|---|
+| `poc-core` (`crates/poc-core`) | `dokumentz-sheet` (`crates/dokumentz-sheet`) | Motor de la hoja: IronCalc, vista de cuadrícula y comandos |
+| `poc-metrics` | `dokumentz-metrics` | Instrumentación (permanente y compartida) |
+| `poc-script`, `poc-script-check` | `dokumentz-script`, `dokumentz-script-check` | Guiones de prueba compartidos |
+| `poc-gen` (`crates/poc-gen`) | `testdata-gen` (`tools/testdata-gen`) | Generador de A1–A3 (herramienta) |
+| `poc-tauri`, `poc-gpui` | `dokumentz-app-tauri`, `dokumentz-app-gpui` | Las dos interfaces candidatas (`apps/tauri`, `apps/gpui`) |
+| `POC_METRICS_OUT` | `DOKUMENTZ_METRICS_OUT` | Variable de entorno de la instrumentación |
+| esquema `poc-results/1` | `dokumentz-bench/1` | Esquema JSON de resultados |
+| (nuevo) | `tools/compat-check` | Herramienta de compatibilidad (D-17) |
+
+**Por qué.** Evita renombrar todo al pasar a la fase 1 y deja claro qué se conserva (los crates `dokumentz-*` y las herramientas) y qué es provisional (solo la interfaz perdedora de `apps/`).
+
+**Alternativas consideradas.** *Mantener `poc-*` y renombrar en la fase 1:* descartada, cuesta un cambio masivo y confunde el historial.
+
+**Fuentes.** Decisión del dueño (2026-10-22); estructura completa en `plan.md` §4 y en `../000-arquitectura-suite/arquitectura.md`.
 
 ---
 
@@ -380,7 +467,12 @@ Este documento reúne las decisiones técnicas ya tomadas por el usuario o deriv
 | Patrón del textarea oculto en Google Docs y ONLYOFFICE | Sin fuente primaria (D-07); no condiciona la decisión |
 | Disponibilidad de EditContext en WebView2 | No verificada (D-07) |
 | Términos vigentes en 2026 de la licencia de la cinta; sentencia final y apelaciones de *Microsoft v. Corel* | No verificados (D-14) |
-| Recálculo incremental de IronCalc | Se mide en M-05 (D-02) |
+| Costo real del recálculo completo de IronCalc en cada edición | El comportamiento (reevalúa todo el libro) está verificado en el código de v0.9.1; su costo se mide en M-05 (D-02) |
+| Cuántas de las 497 funciones de IronCalc calculan igual que Excel | Se mide en SC-007 / M-09(d) (D-16, D-17) |
+| Valor de `Application` que escriben Apache POI y LibreOffice, y si todo archivo de A4 trae `docProps/app.xml` | Sin verificar; se confirma al preparar A4. Sin `app.xml` el archivo se informa aparte (D-17) |
+| Archivos generados por bibliotecas que escriben «Microsoft Excel» en `Application` | Limitación verificada con `rust_xlsxwriter` 0.101.0; falta decidir si se añade una segunda señal (D-17) |
+| Estructura interna de Office y de LibreOffice (motores por aplicación sobre una base común) | Hecho aportado por el dueño; sin fuente primaria citada (D-16) |
+| Lista de funciones volátiles de Excel según Microsoft | Fuente secundaria (Exceljet); no se encontró la página de Microsoft (D-17) |
 | Licencias de los crates de Zed de los que depende `gpui` | Directas: todas Apache-2.0 (verificado 2026-10-22). Transitivas: auditoría con `cargo deny` en el commit fijado (D-15) |
 | Calidad del IME de GPUI en Windows y Linux | Se prueba en SC-004 (D-07) |
 | Otros motores de hojas en Rust y otros marcos nativos (iced, etc.) | No evaluados (D-02, D-03) |
@@ -392,6 +484,26 @@ Este documento reúne las decisiones técnicas ya tomadas por el usuario o deriv
 - https://github.com/ironcalc/IronCalc
 - https://docs.rs/ironcalc_base/latest/ironcalc_base/struct.UserModel.html
 - https://docs.rs/ironcalc/latest/ironcalc/import/index.html
+
+**Compatibilidad con archivos reales (SC-007)**
+- https://crates.io/api/v1/crates/ironcalc
+- https://crates.io/api/v1/crates/calamine
+- https://docs.rs/calamine/0.37.0/calamine/struct.XlsxCellFormula.html
+- https://docs.rs/calamine/0.37.0/calamine/struct.XlsxCellReader.html
+- https://raw.githubusercontent.com/tafia/calamine/master/src/xlsx/cells_reader.rs
+- https://docs.rs/rust_xlsxwriter/latest/rust_xlsxwriter/struct.Formula.html
+- https://docs.rs/rust_xlsxwriter/0.101.0/rust_xlsxwriter/worksheet/struct.Worksheet.html
+- https://raw.githubusercontent.com/ironcalc/IronCalc/main/LICENSE-MIT
+- https://raw.githubusercontent.com/ironcalc/IronCalc/main/LICENSE-Apache-2.0
+- https://github.com/ironcalc/IronCalc/blob/v0.9.1/base/src/evaluation.rs
+- https://github.com/ironcalc/IronCalc/blob/v0.9.1/base/src/user_model/common.rs
+- https://raw.githubusercontent.com/jmcnamara/XlsxWriter/main/xlsxwriter/app.py
+- https://forum.aspose.com/t/application-xml-node-in-app-xml-is-empty-for-new-workbooks/227999
+- https://www.libreoffice.org/bugzilla/show_bug.cgi?id=89775
+- https://exceljet.net/glossary/volatile-function
+
+**Arquitectura de la suite**
+- `../000-arquitectura-suite/arquitectura.md`
 
 **Interfaces**
 - https://github.com/tauri-apps/tauri/releases

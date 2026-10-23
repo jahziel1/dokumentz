@@ -5,29 +5,36 @@
 | Estado | Borrador para revisión del agente principal y del dueño del proyecto |
 | Fecha | 2026-10-22 |
 | Rama de especificación | `001-poc-hoja-de-calculo` |
-| Documentos hermanos | `specs/constitucion.md` (prevalece sobre este plan), `spec.md` (QUÉ y POR QUÉ), `research.md` (decisiones y fuentes), `tasks.md` (tareas y etapas) |
-| IDs que usa este plan | `FR-001…FR-013`, `M-01…M-08`, `SC-001…SC-006`, `A1…A4`, `US1…US4` (iguales a `spec.md`); `D-xx` remite a `research.md`; `R-xx` son riesgos de este plan; `EX-xx` son excepciones a la constitución; `CG-x` son compuertas de decisión temprana |
+| Documentos hermanos | `specs/constitucion.md` (prevalece sobre este plan), `specs/000-arquitectura-suite/arquitectura.md` (**entrada**: arquitectura de la suite y hoja de ruta; esta PoC es su fase 0a), `spec.md` (QUÉ y POR QUÉ), `research.md` (decisiones y fuentes), `tasks.md` (tareas y etapas) |
+| IDs que usa este plan | `FR-001…FR-014`, `M-01…M-09`, `SC-001…SC-007`, `A1…A4`, `US1…US5` (iguales a `spec.md`); `D-xx` remite a `research.md`; `R-xx` son riesgos de este plan; `EX-xx` son excepciones a la constitución; `CG-x` son compuertas de decisión temprana |
 | Convención de verificación | `[VERIFICADO]` = comprobado en esta sesión con la URL o el comando indicado (anexo A). `[NO VERIFICADO]` = dicho de memoria o inferido; no se debe apoyar trabajo grande en ello sin la tarea que lo comprueba. `[A VERIFICAR EN Txxx]` = lo resuelve una tarea de `tasks.md` |
 
 ---
 
 ## 1. Resumen
 
-La PoC construye **un solo núcleo en Rust** (`poc-core`, que envuelve `ironcalc_base::UserModel`) y **dos interfaces delgadas** sobre él: **Tauri 2** (webview del sistema, cuadrícula en canvas 2D) y **GPUI** (nativa con GPU, cuadrícula como elemento de dibujo propio). Ambas ofrecen exactamente FR-001…FR-013: abrir `.xlsx`, mostrar la cuadrícula con estilos, desplazarse con fluidez en 100 000+ filas, navegar, editar con fórmulas en español e inglés, IME, deshacer/rehacer, varias hojas, copiar/pegar tabulado y guardar `.xlsx`. Sin cinta.
+Este plan parte de la **arquitectura de la suite** (`specs/000-arquitectura-suite/arquitectura.md`): Dokumentz será una suite (hoja, documentos, presentaciones) con una base común y un motor por tipo de documento, e IronCalc es solo la calculadora de la hoja. Esta PoC es la **fase 0a** de esa hoja de ruta y **construye piezas de producto**, no un instrumento desechable: `dokumentz-sheet`, `dokumentz-metrics`, `dokumentz-script` y las herramientas `tools/*` se conservan; solo la interfaz perdedora se descarta. Las demás piezas de la base común (`dokumentz-opc`, `dokumentz-text`, `dokumentz-render`, `dokumentz-edit`, `dokumentz-shell`…) **no** se crean aquí: llegan en la fase 1 (ver nota del §4).
+
+La PoC construye **un solo núcleo en Rust** (`dokumentz-sheet`, que envuelve `ironcalc_base::UserModel`) y **dos interfaces delgadas** sobre él: **Tauri 2** (webview del sistema, cuadrícula en canvas 2D) y **GPUI** (nativa con GPU, cuadrícula como elemento de dibujo propio). Ambas ofrecen exactamente FR-001…FR-013: abrir `.xlsx`, mostrar la cuadrícula con estilos, desplazarse con fluidez en 100 000+ filas, navegar, editar con fórmulas en español e inglés, IME, deshacer/rehacer, varias hojas, copiar/pegar tabulado y guardar `.xlsx`. Sin cinta.
 
 El núcleo no sabe nada de ventanas. Cada cuadro que una interfaz dibuja sale de una **lista de dibujo** (`DrawList`): las celdas del área visible más un margen, con texto ya formateado, estilo ya resuelto y geometría ya calculada. En Tauri la lista viaja en **binario** (`tauri::ipc::Response`), se guarda en una caché en la webview y el desplazamiento **no hace llamadas al puente** mientras el área visible siga dentro del bloque en caché. En GPUI la lista se lee directamente del núcleo en el mismo proceso.
 
-La PoC mide las tres aplicaciones (PoC-Tauri, PoC-GPUI y ONLYOFFICE 10.0.0) con **el mismo método externo** (captura de pantalla a tasa constante + entrada sintética del sistema + muestreo de memoria de todos los procesos) y, además, a las dos PoC con su **instrumentación interna**. Un orquestador (`bench-runner`) produce JSON; un agregador (`bench-report`) calcula medianas y p95, evalúa SC-001…SC-006, aplica la regla de decisión de `spec.md` §9 y escribe el informe. Los criterios se congelan **antes** de la primera corrida oficial.
+La PoC mide las tres aplicaciones (PoC-Tauri, PoC-GPUI y ONLYOFFICE 10.0.0) con **el mismo método externo** (captura de pantalla a tasa constante + entrada sintética del sistema + muestreo de memoria de todos los procesos) y, además, a las dos PoC con su **instrumentación interna**. Un orquestador (`bench-runner`) produce JSON; un agregador (`bench-report`) calcula medianas y p95, evalúa SC-001…SC-007, aplica la regla de decisión de interfaz de `spec.md` §9 y, **por separado**, la regla del motor, y escribe el informe. Los criterios se congelan **antes** de la primera corrida oficial.
 
-Tres hallazgos de esta sesión condicionan el diseño y están marcados en el texto:
+Además, la herramienta `tools/compat-check` responde la pregunta 5 de la spec (¿el motor abre los archivos reales con los mismos resultados que Excel?): abre cada archivo de A4 con el motor de la hoja, recalcula y compara con el valor que el propio archivo trae guardado, con `calamine` como lector independiente (US5, FR-014, M-09, SC-007; método en §9.10 y D-17). No mide tiempo y no depende de ninguna interfaz.
+
+Cuatro hallazgos de esta sesión condicionan el diseño y están marcados en el texto:
 
 1. **IronCalc reevalúa todo el libro en cada edición.** En el código de `main`, `UserModel::set_user_input` llama a `Model::evaluate()`, cuya documentación dice «Evaluates every formula in the workbook», y `evaluate` recorre todas las fórmulas y, en las hojas con fórmulas, todas las celdas buscando matrices dinámicas. No es incremental. Afecta a M-04 y M-05 en A2 (riesgo R-04). `[VERIFICADO]` en `main` **y en la etiqueta `v0.9.1`** (revisión del 2026-10-22: en `base/src/evaluation.rs`, `run_pass` vacía la caché de celdas y evalúa todas las `formula_positions()` en cada pasada; `evaluate_if_not_paused` llama a `self.model.evaluate()`).
 2. **Con idioma `es`, los nombres de función en inglés no se aceptan** (`=TRUE()` da `#¿NOMBRE?`; las fórmulas se guardan internamente en inglés y se muestran en el idioma activo). FR-006 exige aceptar ambos idiomas, así que el núcleo necesita una política propia (§5.7). `[VERIFICADO]` en las pruebas de `main`.
 3. **GPUI como dependencia git exige replicar los `[patch.crates-io]` del `Cargo.toml` de Zed** (`async-task`, `calloop`, `khronos-egl`…): la lista `[VERIFICADO]` en el `Cargo.toml` de Zed; que Cargo no aplica los `[patch]` de una dependencia a quien la consume es comportamiento conocido de Cargo, `[NO VERIFICADO]` en esta sesión y comprobado de todos modos en T007.
+4. **El campo `Application` de `docProps/app.xml` no distingue a Excel de las bibliotecas que copian su nombre.** `rust_xlsxwriter` 0.101.0 escribe «Microsoft Excel», `AppVersion` 12.0000 y `fullCalcOnLoad="1"`, y XlsxWriter (Python) escribe la misma cadena. La regla decidida para SC-007 usa `Application`; el límite y la propuesta de una segunda señal están en §9.9 y §9.10. `[VERIFICADO]` en un archivo generado localmente y en https://raw.githubusercontent.com/jmcnamara/XlsxWriter/main/xlsxwriter/app.py.
 
 ---
 
 ## 2. Contexto técnico
+
+**Entrada de arquitectura.** `specs/000-arquitectura-suite/arquitectura.md` fija las capas de la suite (base común, motores por tipo de documento, interfaz y herramientas), los nombres de producto (D-18) y la hoja de ruta 0a/0b/1…5. De ahí salen, para esta PoC: (1) los nombres de crates y carpetas del §4; (2) que `dokumentz-sheet` envuelve a IronCalc pero no es «el motor de la suite» (D-16); (3) que cada fase mide velocidad **y** compatibilidad, por lo que la PoC incorpora SC-007; (4) que la lista de dibujo de la cuadrícula (§5.4) es específica de la hoja y será el primer cliente del futuro `dokumentz-render`; (5) que EX-01 (texto en la interfaz) se cierra cuando entre `dokumentz-text` en la fase 1.
 
 ### 2.1 Lenguajes y toolchain
 
@@ -44,8 +51,9 @@ Tres hallazgos de esta sesión condicionan el diseño y están marcados en el te
 | Dependencia | Versión / fijación | Uso | Estado |
 |---|---|---|---|
 | `ironcalc` y `ironcalc_base` | `=0.9.1` | Motor, importar/exportar `.xlsx` | `[VERIFICADO]` 0.9.1 en docs.rs (`ironcalc_base::expressions::types::Area`) |
-| `rust_xlsxwriter` | `=0.101.0` (MIT OR Apache-2.0) | Solo el generador (FR-013) y fixtures de prueba; es independiente de IronCalc a propósito: así la importación de IronCalc se prueba contra un escritor ajeno | `[VERIFICADO]` docs.rs; `Formula::new(..).set_result(..)` existe `[VERIFICADO]` |
-| `calamine` | Última estable, se fija en T036 | Lector independiente para la comparación de ida y vuelta (SC-005) | `[NO VERIFICADO]` (conocido, no consultado) |
+| `rust_xlsxwriter` | `=0.101.0` (MIT OR Apache-2.0) | El generador (FR-013) y los fixtures de prueba de `xlsx-diff` y de `compat-check`; es independiente de IronCalc a propósito: así la importación de IronCalc se prueba contra un escritor ajeno | `[VERIFICADO]` docs.rs; `Formula::new(..).set_result(..)` y `Worksheet::set_formula_result(..)` existen `[VERIFICADO]` (docs.rs y prueba local del 2026-10-22: el valor guardado forzado se lee tal cual) |
+| `calamine` | **`=0.37.0`** (MIT; publicada el 2026-10-18) | Lector independiente de IronCalc: ida y vuelta (SC-005, `xlsx-diff`) y valores guardados y fórmulas de los archivos reales (SC-007, `compat-check`) | `[VERIFICADO]` crates.io (versión y licencia) y docs.rs; `worksheet_range` devuelve el **valor guardado** de las celdas con fórmula y `worksheet_formula` su texto, probado localmente con 0.37.0 el 2026-10-22 (D-17) |
+| `zip` | La que resuelva `calamine` en `Cargo.lock` (9.0.5 en la prueba local del 2026-10-22) | Solo `compat-check`: leer `docProps/app.xml` para detectar el productor del archivo | `[NO VERIFICADO]` su licencia; la comprueba `cargo deny` (T003, T108) |
 | `tauri` | `~2.12` (estable 2.12.5, 21-oct-2026) | Interfaz A | `[VERIFICADO]` github.com/tauri-apps/tauri/releases |
 | `@tauri-apps/cli` | `~2.12` (2.12.4 listado el 21-oct-2026) | Compilar y empaquetar | `[VERIFICADO]` ídem |
 | `@tauri-apps/api` | `2.x` | `invoke`, `Channel` | `[VERIFICADO]` la clase `Channel<T>` en `packages/api/src/core.ts` |
@@ -66,21 +74,23 @@ Tres hallazgos de esta sesión condicionan el diseño y están marcados en el te
 - **Documento:** un `.xlsx` en disco (formato nativo; principio IV). No hay base de datos, ni formato propio, ni caché persistente. El estado en memoria es el `UserModel` de IronCalc.
 - **Guardado atómico:** el núcleo escribe a un archivo temporal en la misma carpeta y renombra al terminar; si falla (disco lleno, sin permisos) el original queda intacto (caso límite de `spec.md` §4).
 - **Resultados de medición:** JSON en `results/<plataforma>/<run-id>/` (esquema en §9.7). Informe generado: `informe.md` e `informe.json` en la misma carpeta.
-- **Archivos de prueba:** A1–A3 generados por `poc-gen` en `testdata/` (ignorado por git; se regeneran con semilla fija y se verifica su `sha256` de contenido en `manifest.json`). Solo viven en el repositorio los fixtures pequeños (≤ 100 KB) para pruebas unitarias. A4 nunca se copia al repositorio ni sale del equipo.
+- **Archivos de prueba:** A1–A3 generados por `testdata-gen` en `testdata/` (ignorado por git; se regeneran con semilla fija y se verifica su `sha256` de contenido en `manifest.json`). Solo viven en el repositorio los fixtures pequeños (≤ 100 KB) para pruebas unitarias. A4 nunca se copia al repositorio ni sale del equipo.
+- **Resultados de compatibilidad (M-09):** `results/<plataforma>/<run-id>/M-09-compat.json` y `compat.md` (§9.10). Como `results/` puede subirse al repositorio público, el JSON versionado de los archivos de la fuente «usuario» **no** lleva valores de celda, nombres de hoja ni rutas (solo un identificador derivado del SHA-256, recuentos y nombres de función); el detalle celda a celda va a `results/<plataforma>/<run-id>/privado/`, ignorado por git (T001).
 - **Sin configuración persistente** en la PoC (ni preferencias, ni telemetría, ni cuentas).
 
 ### 2.4 Pruebas
 
 | Nivel | Herramienta | Dónde corre |
 |---|---|---|
-| Núcleo (unidad, integración, doradas) | `cargo test -p poc-core`; archivo dorado `crates/poc-core/tests/golden/drawlist_v1.bin` compartido con el decodificador de TypeScript | CI en 3 SO; sin ventana |
-| Grafo de dependencias del núcleo | Prueba `crates/poc-core/tests/no_ui_deps.rs` que usa `cargo metadata` y falla si aparece cualquier crate de una lista negra (`tauri*`, `wry`, `tao`, `gpui*`, `gtk*`, `webkit2gtk*`, `winit`, `objc2-app-kit`…) | CI en Linux |
+| Núcleo (unidad, integración, doradas) | `cargo test -p dokumentz-sheet`; archivo dorado `crates/dokumentz-sheet/tests/golden/drawlist_v1.bin` compartido con el decodificador de TypeScript | CI en 3 SO; sin ventana |
+| Grafo de dependencias del núcleo | Prueba `crates/dokumentz-sheet/tests/no_ui_deps.rs` que usa `cargo metadata` y falla si aparece cualquier crate de una lista negra (`tauri*`, `wry`, `tao`, `gpui*`, `gtk*`, `webkit2gtk*`, `winit`, `objc2-app-kit`…) | CI en Linux |
 | Frontend de Tauri | Vitest + `mockIPC` de `@tauri-apps/api/mocks` `[VERIFICADO]` (v2.tauri.app/develop/tests/mocking/) | CI en 3 SO |
-| Capa de comandos de Tauri | `cargo test -p poc-tauri` llamando a las funciones de `commands.rs` con un `Core` real (sin runtime de Tauri) | CI en 3 SO |
+| Capa de comandos de Tauri | `cargo test -p dokumentz-app-tauri` llamando a las funciones de `commands.rs` con un `Core` real (sin runtime de Tauri) | CI en 3 SO |
 | E2E de ventana de Tauri | `tauri-driver` solo en Windows y Linux (en macOS no hay driver de WKWebView) `[VERIFICADO]` (v2.tauri.app/develop/tests/webdriver/); en macOS se usa el **modo guion** (§5.10) | CI: Linux (xvfb) y Windows; macOS por guion |
 | GPUI | `gpui` con característica `test-support` y `TestAppContext` para lógica de entrada y teclas sin GPU `[VERIFICADO]` en el README de `gpui`; humo de ventana con modo guion | CI: pruebas sin GPU en 3 SO; humo de ventana en Linux con xvfb y Vulkan por software, **mejor esfuerzo** |
-| Funcionales comunes (FR-001…FR-011) | Guiones JSON en `tests/functional/` ejecutados por **ambas** apps con `--script` y verificados por `poc-script-check` | CI en 3 SO + local |
+| Funcionales comunes (FR-001…FR-011) | Guiones JSON en `tests/functional/` ejecutados por **ambas** apps con `--script` y verificados por `dokumentz-script-check` | CI en 3 SO + local |
 | Ida y vuelta (SC-005) | `xlsx-diff` (calamine) sobre A1–A3; juez `x2t` y LibreOffice headless | Local (completo); CI con versión reducida `--scale ci` |
+| Compatibilidad del motor (SC-007) | `cargo test -p compat-check` con fixtures de `rust_xlsxwriter` + `set_formula_result` (valor guardado coincidente y discrepante, volátiles, sin valor guardado, productor Excel y no Excel, archivo corrupto, `.xlsm` ficticio); corrida real sobre A4 con `compat-check run` | Autoprueba con fixtures: CI en 3 SO. Corrida sobre A4: local (macOS), nunca en CI porque A4 no sale del equipo |
 | Manual guiado (SC-004) | `tests/manual/fr007-ime.md` con tabla de resultados por plataforma | Persona, en hardware real |
 
 ### 2.5 Plataformas
@@ -105,10 +115,11 @@ Etiquetas de ejecutores `[VERIFICADO]` (github.com/actions/runner-images README)
 | M-06 memoria | SC-001: ≤ 50 % de la de ONLYOFFICE | RSS del núcleo con A1 abierto, medido en T005 (CG-1) |
 | M-07 guardar | Sin umbral SC; solo vale si la integridad pasa (SC-005) | `save_to_xlsx` de A1 medido en T005 |
 | M-08 tamaño | Sin umbral SC; se informa con la salvedad de alcance de ONLYOFFICE | Binario release de cada app |
+| M-09 compatibilidad | SC-007: (a) ≥ 95 % de archivos abren sin error y 0 cierres; (b) ≥ 98 % de fórmulas coinciden con Excel (archivos producidos por Excel); (c) 100 % de valores sin fórmula idénticos; por fuente además | No es tiempo: determinista, una corrida por archivo (§9.10) |
 
 ### 2.7 Restricciones del plan
 
-- Sin red, sin cuentas, sin telemetría. La CSP de Tauri prohíbe cualquier origen externo (T051). La instrumentación está apagada por defecto y solo se activa con `--metrics-out <ruta>` o `POC_METRICS_OUT`.
+- Sin red, sin cuentas, sin telemetría. La CSP de Tauri prohíbe cualquier origen externo (T051). La instrumentación está apagada por defecto y solo se activa con `--metrics-out <ruta>` o `DOKUMENTZ_METRICS_OUT`.
 - No se copia código de ONLYOFFICE (principio VII). El ejemplo `input.rs` de Zed (Apache-2.0) sí puede adaptarse con su procedencia anotada en el archivo (T067).
 - La CI compila y prueba; **no** mide rendimiento (D-13).
 - Tauri 3 con CEF no se usa (D-10).
@@ -127,26 +138,27 @@ Etiquetas de ejecutores `[VERIFICADO]` (github.com/actions/runner-images README)
 | 8 Contenido no soportado | Resuelta en `spec.md`: se ignora al mostrar y **se avisa al abrir** si el archivo trae partes que la PoC no conserva (`[A VERIFICAR EN T006]` si IronCalc las informa; si no, detección propia de las partes del paquete). En esos archivos, Cmd/Ctrl+S **pide confirmación** antes de sobrescribir y «Guardar como» propone un nombre nuevo; en los demás, Cmd/Ctrl+S sobrescribe sin preguntar |
 | 9 y 10 Regla de decisión / agregación | El agregador implementa la lectura de `spec.md` («en alguna de las dos» para ≥2× en M-03/M-04; p95 por repetición y mediana entre repeticiones) |
 | 11 Umbrales | Resuelta en `spec.md`: se adoptan los propuestos y se congelan en `criteria.toml` antes de la primera corrida oficial (T049); no se cambian después de ver datos |
-| 12 Archivos A4 | **Resuelta (2026-10-22):** archivos del usuario + corpus públicos (Apache POI `test-data/spreadsheet`, Apache-2.0; LibreOffice `sc/qa/unit/data/xlsx`, MPL-2.0), incluidos `.xlsm`. Un manifiesto (`testdata/a4/manifest.toml`, que sí se versiona) lista fuente, licencia y SHA-256; los archivos van a `testdata/a4/` (ignorado por git). Nunca se ejecutan macros (T114) |
+| 12 Archivos A4 | **Resuelta (2026-10-22):** archivos del usuario + corpus públicos (Apache POI `test-data/spreadsheet`, Apache-2.0; LibreOffice `sc/qa/unit/data/xlsx`, MPL-2.0), incluidos `.xlsm`. Un manifiesto (`testdata/a4/manifest.toml`, que sí se versiona) lista fuente, licencia y SHA-256; los archivos van a `testdata/a4/` (ignorado por git). Nunca se ejecutan macros (T114, T115). **A4 alimenta SC-007** (T115–T118) y se informa por fuente (usuario / Apache POI / LibreOffice); sin A4 preparado, SC-007 queda `sin datos` |
 | 13 Alojamiento del repositorio | **Resuelta (2026-10-22): GitHub público** https://github.com/jahziel1/dokumentz (vacío, rama `main`). Ejecutores de Actions gratuitos sin límite de minutos por ser público. `git init` y el primer `push` se hacen en CP-0 con confirmación del dueño |
+| 15 y 16 Arquitectura de la suite y umbrales de SC-007 | **Resueltas (2026-10-22).** Hoja de ruta y arquitectura en `specs/000-arquitectura-suite/arquitectura.md`; nombres de producto (D-18); los umbrales de SC-007 se adoptan como propuesta (aclaración 16) y se congelan en `criteria.toml` junto a los de SC-001…SC-005 (T047, T049). Pendiente en 000: aplicación única o tres aplicaciones |
 | Extensión de desplazamiento (nuevo, decisión del plan) | La extensión desplazable es el **rango usado** más una pantalla de holgura; crece si la selección sale de ella. «Hasta el final» en US1-5 significa la última fila con datos |
 
 ---
 
 ## 3. Verificación contra la constitución
 
-Las preguntas de «Compuertas de la constitución» de `specs/constitucion.md` (versión 1.0.0) se responden así.
+Las preguntas de «Compuertas de la constitución» de `specs/constitucion.md` (versión 1.1.1) se responden así.
 
 | Principio | Pregunta de la compuerta | Cómo la cumple la PoC | Evidencia / tareas |
 |---|---|---|---|
 | I. Libre y gratuito | ¿Alguna dependencia GPL/LGPL/AGPL, cuenta, nube o telemetría? Debe ser «no» | Licencia MIT OR Apache-2.0; `deny.toml` bloquea GPL, LGPL, AGPL y licencias desconocidas; CSP sin orígenes externos; instrumentación apagada por defecto, escribe solo JSON local; no hay pantalla de inicio de sesión. Crates internos de Zed bajo `gpui_platform`: todos Apache-2.0 `[VERIFICADO]`. La licencia del proyecto sigue en aclaración 1 | T003, T051, T012, T108, T109 (sesión con la red apagada y revisión de conexiones) |
 | II. Velocidad | ¿Cada cambio de interfaz o núcleo lleva medición antes/después contra su presupuesto? | Las tareas marcadas `[MIDE]` en `tasks.md` adjuntan JSON de la instrumentación interna (`results/dev/…`). Los presupuestos están en §2.6 y en `spec.md` §6/§8 | T030, T031, T056, T061, T063, T071 |
-| III. Regla de oro | ¿El núcleo compila y se prueba sin interfaz y sin depender de ella? | `poc-core` solo depende de `ironcalc*`, `serde`, `thiserror` y (opcional, por característica) `poc-metrics`. Prueba `no_ui_deps` en CI. Hit-testing, geometría, formato de números, fórmulas, archivos y TSV del portapapeles viven en el núcleo. Las interfaces dibujan y reciben entrada; la **única** excepción es EX-01 | T004, T015–T032 |
-| IV. Formatos Office nativos | ¿Guardar y abrir usan el formato Office directamente y pasan la ida y vuelta? | `open_xlsx`/`save_xlsx` sin diálogo de conversión; Cmd/Ctrl+S sobrescribe el `.xlsx` abierto; ida y vuelta automática con lector independiente; jueces `x2t` (ONLYOFFICE), LibreOffice y Excel si hay | T077, T078, T079 |
+| III. Regla de oro | ¿El núcleo compila y se prueba sin interfaz y sin depender de ella? | `dokumentz-sheet` solo depende de `ironcalc*`, `serde`, `thiserror` y (opcional, por característica) `dokumentz-metrics`. Prueba `no_ui_deps` en CI. Hit-testing, geometría, formato de números, fórmulas, archivos y TSV del portapapeles viven en el núcleo. Las interfaces dibujan y reciben entrada; la **única** excepción es EX-01 | T004, T015–T032 |
+| IV. Formatos Office nativos | ¿Guardar y abrir usan el formato Office directamente y pasan la ida y vuelta? | `open_xlsx`/`save_xlsx` sin diálogo de conversión; Cmd/Ctrl+S sobrescribe el `.xlsx` abierto; ida y vuelta automática con lector independiente; jueces `x2t` (ONLYOFFICE), LibreOffice y Excel si hay; además `compat-check` mide si el motor abre los archivos reales con los resultados de Excel (SC-007, sin ejecutar macros) | T077, T078, T079, T115–T118 |
 | V. Sentirse como Office, diseño propio | ¿Los atajos y nombres siguen al sistema y el diseño visual es propio? | Tabla de atajos por SO (§6.7 y §7.6), funciones en `es`/`en`. Sin cinta. Diseño visual propio (colores y tipografía de sistema, ningún recurso de Microsoft); registro de procedencia del icono de la app | T055, T060, T111 |
 | VI. Multiplataforma real | ¿Se probó en macOS, Windows y Linux y el rendimiento en hardware real? | CI de 3 SO (compilar + pruebas funcionales). Rendimiento solo en hardware real; mediciones en VM se marcan «solo funcional». El informe incluye modelo, GPU, SO y versión del motor web | T081, T093–T105 |
 | VII. No copiar de ONLYOFFICE | ¿Se evitó copiar código y se usó como juez? | Ningún archivo de `sdkjs`/`web-apps`/`core` en el árbol; `x2t` se invoca como programa externo y el resultado se compara con `xlsx-diff`. Lectura de revisión de procedencia en cada punto de control | T037, T078, CP-* |
-| VIII. Medir antes de decidir | ¿Decisión con datos reproducibles y regla fijada antes de medir? | La regla de `spec.md` §9 está codificada y probada rama por rama en `bench-report`; `criteria.toml` se congela con etiqueta git y su hash viaja en cada JSON (`criteria_sha`). Semilla fija. Se reportan también las medidas en que la PoC pierde | T047–T049, T107 |
+| VIII. Medir antes de decidir | ¿Decisión con datos reproducibles y regla fijada antes de medir? | La regla de `spec.md` §9 está codificada y probada rama por rama en `bench-report`; `criteria.toml` (con los umbrales de SC-007) se congela con etiqueta git y su hash viaja en cada JSON (`criteria_sha`). La regla del motor (SC-007) se fija antes de medir y se aplica por separado de la de interfaz. Semilla fija. Se reportan también las medidas en que la PoC pierde | T047–T049, T107, T117 |
 | IX. Etapas cortas | ¿La etapa termina con pruebas en verde y un diff revisado? | `tasks.md` agrupa en etapas de < 150k de contexto con puntos de control `CP-n` en los que el agente principal vuelve a correr las pruebas y revisa el diff | `tasks.md` |
 
 ### Excepciones registradas (Gobierno, regla 5)
@@ -161,19 +173,22 @@ Otras decisiones de reparto que **no** son excepciones: el búfer de edición (t
 
 ## 4. Estructura del repositorio
 
+La raíz del repositorio es `dokumentz/` (https://github.com/jahziel1/dokumentz). Los nombres siguen la arquitectura de la suite (`specs/000-arquitectura-suite/arquitectura.md`, D-18): lo que construye esta PoC son **piezas de producto**; solo `apps/` contiene una pieza provisional (la interfaz que pierda se borra al cerrar la fase 0).
+
 ```
-le document/
+dokumentz/
 ├── Cargo.toml                     # [workspace], [workspace.dependencies], [patch.crates-io] de GPUI, perfiles
 ├── Cargo.lock
 ├── rust-toolchain.toml            # channel = "1.99.0"
-├── .cargo/config.toml             # alias test-core = test --workspace --exclude poc-tauri --exclude poc-gpui
+├── .cargo/config.toml             # alias test-core = test --workspace --exclude dokumentz-app-tauri --exclude dokumentz-app-gpui
 ├── deny.toml                      # cargo-deny: licencias y fuentes
 ├── rustfmt.toml  .editorconfig  .gitignore
 ├── specs/
 │   ├── constitucion.md
+│   ├── 000-arquitectura-suite/    # arquitectura.md: capas, fases y hoja de ruta de la suite (entrada de este plan)
 │   └── 001-poc-hoja-de-calculo/   # spec.md research.md plan.md tasks.md (+ decision.md al cierre)
-├── crates/
-│   ├── poc-core/                  # NÚCLEO (sin dependencias de interfaz)
+├── crates/                        # piezas permanentes (se conservan en las fases siguientes)
+│   ├── dokumentz-sheet/                 # MOTOR DE LA HOJA: IronCalc + vista de cuadrícula + comandos (sin dependencias de interfaz)
 │   │   ├── src/
 │   │   │   ├── lib.rs             # API pública y reexportaciones
 │   │   │   ├── core.rs            # struct Core, abrir/guardar, apply(Command)
@@ -186,56 +201,64 @@ le document/
 │   │   │   ├── edit.rs            # sesión de edición, idioma de fórmulas
 │   │   │   ├── clipboard.rs       # TSV de copia y pegado
 │   │   │   ├── save.rs            # guardado atómico
+│   │   │   ├── inspect.rs         # lectura de solo lectura de valores sin formato y fórmulas (la usa tools/compat-check, §5.9)
 │   │   │   └── error.rs
 │   │   ├── tests/                 # nav, edit, formulas_es_en, undo_deps, clipboard, roundtrip, no_ui_deps, spike_*
 │   │   ├── tests/golden/drawlist_v1.bin
 │   │   └── examples/{bench_drawlist,bench_edit}.rs
-│   ├── poc-metrics/               # instrumentación (FR-012): Recorder, Span, Histogram, JSON; tipos del esquema de resultados
-│   ├── poc-script/                # guion de pruebas: Step, Script, ScriptResult; binario poc-script-check
-│   └── poc-gen/                   # generador (FR-013): A1, A2, A3, empty, small; binario poc-gen
-├── apps/
+│   ├── dokumentz-metrics/               # instrumentación (FR-012): Recorder, Span, Histogram, JSON; tipos del esquema de resultados (permanente y compartida)
+│   └── dokumentz-script/                # guiones de prueba compartidos: Step, Script, ScriptResult; binario dokumentz-script-check
+├── tools/                         # herramientas permanentes: cada fase mide velocidad y compatibilidad
+│   ├── testdata-gen/              # generador (FR-013): A1, A2, A3, empty, small; binario testdata-gen
+│   ├── compat-check/              # compatibilidad con archivos reales (FR-014, M-09, SC-007): lib + bin (run, file, missing)
+│   │   ├── src/{lib,main,producer,reference,compare,volatile,functions,report,supervisor,missing}.rs
+│   │   └── tests/                 # fixtures generados con rust_xlsxwriter + set_formula_result (ver tests/fixtures/compat/)
+│   ├── xlsx-diff/                 # comparación celda a celda con calamine (lib + bin)
+│   ├── bench-runner/              # método externo: env, preflight, captura, entrada, memoria, juez, roundtrip, calibrar, run
+│   ├── bench-report/              # agregación, criterios, regla de decisión de interfaz, regla del motor, informe
+│   │   └── criteria.toml          # umbrales congelados (SC-001…SC-005 y SC-007)
+│   ├── corpus/                    # fetch.sh: descarga de los corpus públicos de A4 con hashes (T114; requiere visto bueno del dueño)
+│   └── ci/                        # listas de paquetes del SO, scripts de apoyo
+├── apps/                          # interfaces candidatas (la perdedora se borra al cerrar la fase 0; la ganadora es la semilla de apps/dokumentz)
 │   ├── tauri/
 │   │   ├── package.json  vite.config.ts  tsconfig.json  index.html
 │   │   ├── src/                   # TypeScript: main.ts drawlist.ts renderer.ts scroller.ts input.ts editor.ts ime.ts
 │   │   │                          #             formulabar.ts tabs.ts script.ts metrics.ts   (+ *.test.ts)
-│   │   └── src-tauri/             # crate poc-tauri
+│   │   └── src-tauri/             # crate dokumentz-app-tauri
 │   │       ├── Cargo.toml  tauri.conf.json  capabilities/default.json
 │   │       └── src/{main.rs, lib.rs, commands.rs, state.rs, cli.rs}
-│   └── gpui/                      # crate poc-gpui
+│   └── gpui/                      # crate dokumentz-app-gpui
 │       ├── Cargo.toml
 │       └── src/{main.rs, app.rs, grid.rs, scrollbar.rs, text_input.rs, editor.rs,
 │                formula_bar.rs, tabs.rs, keymap.rs, script.rs, metrics.rs, cli.rs}
-├── tools/
-│   ├── xlsx-diff/                 # comparación celda a celda con calamine (lib + bin)
-│   ├── bench-runner/              # método externo: env, preflight, captura, entrada, memoria, juez, roundtrip, calibrar, run
-│   ├── bench-report/              # agregación, criterios, regla de decisión, informe
-│   │   └── criteria.toml          # umbrales congelados (SC-001…SC-005)
-│   └── ci/                        # listas de paquetes del SO, scripts de apoyo
 ├── tests/
 │   ├── functional/{us1,us2,us3}/  # guiones JSON compartidos por las dos apps
-│   ├── fixtures/                  # xlsx pequeños versionados (≤ 100 KB)
+│   ├── fixtures/                  # xlsx pequeños versionados (≤ 100 KB); compat/ para compat-check
 │   └── manual/fr007-ime.md        # guion manual de SC-004
 ├── docs/medicion/RUNBOOK.md       # procedimiento paso a paso por plataforma (T083)
 ├── docs/procedencia.md            # origen y licencia de cada recurso y de cada fragmento adaptado (T111)
-├── testdata/                      # A1–A3 generados (ignorado por git)
-├── results/<plataforma>/<run-id>/ # JSON de resultados, capturas de verificación, informe
+├── testdata/                      # A1–A3 generados y A4 local (ignorado por git, salvo testdata/a4/manifest.toml)
+├── results/<plataforma>/<run-id>/ # JSON de resultados, capturas de verificación, informe; privado/ ignorado por git
 └── .github/workflows/ci.yml
 ```
+
+**Qué crates de la base común llegan en la fase 1 (no se crean en esta PoC).** La arquitectura (000) prevé además `dokumentz-opc` (paquete de Office; conserva las partes que no entiende, como macros y gráficos aún no soportados), `dokumentz-drawing` (DrawingML compartido; fases 1–4), `dokumentz-text` (motor de texto común; lo decide la PoC 002 y al entrar se cierra EX-01), `dokumentz-render` (protocolo de dibujo genérico; la lista de dibujo de la cuadrícula de §5.4 se convertirá en su primer cliente), `dokumentz-edit` (comandos, deshacer/rehacer, selección y portapapeles con formatos) y `dokumentz-shell` (ventana, pestañas, cinta, menús y atajos, en la tecnología que gane la fase 0a), más `apps/dokumentz`, la aplicación final. `dokumentz-doc` nace en la PoC 002 (documentos) y `dokumentz-slide` en la fase 3. Hasta la fase 1, esas piezas comunes viven dentro de `dokumentz-sheet` (o, en el caso del texto, en cada interfaz, EX-01); su extracción a crates propios se planifica en la fase 1 según la arquitectura 000.
 
 Reglas del árbol:
 
 - Los miembros del espacio de trabajo se **declaran todos en T001–T002** (con código mínimo) para que las etapas siguientes no editen el `Cargo.toml` raíz en paralelo. Solo tocan los `Cargo.toml` de su propio crate.
-- `poc-core` no puede depender de `apps/*`, `tools/*` ni de `poc-script`. `poc-metrics` es opcional en el núcleo (característica `metrics`).
+- `dokumentz-sheet` no puede depender de `apps/*`, `tools/*` ni de `dokumentz-script`. `dokumentz-metrics` es opcional en el núcleo (característica `metrics`).
+- Las herramientas de `tools/` pueden depender de `crates/*`, nunca al revés. `compat-check` depende de `dokumentz-sheet` (el motor bajo prueba) y de `calamine` (el lector **independiente**); no puede usar IronCalc para leer los valores guardados. Ninguna herramienta ejecuta macros.
 - Contingencia R-10: si Tauri y GPUI no resuelven dependencias en un solo `Cargo.lock`, `apps/gpui` pasa a ser un espacio de trabajo independiente que depende de `crates/*` por ruta.
 
 
 ---
 
-## 5. Diseño del núcleo (`crates/poc-core`)
+## 5. Diseño del núcleo (`crates/dokumentz-sheet`)
 
 ### 5.1 Límites
 
-- Dependencias permitidas: `ironcalc`, `ironcalc_base`, `serde`, `thiserror` y, por la característica `metrics`, `poc-metrics`. Nada de ventanas, async runtimes ni portapapeles del sistema (la interfaz mueve cadenas entre el portapapeles del SO y el núcleo).
+- Dependencias permitidas: `ironcalc`, `ironcalc_base`, `serde`, `thiserror` y, por la característica `metrics`, `dokumentz-metrics`. Nada de ventanas, async runtimes ni portapapeles del sistema (la interfaz mueve cadenas entre el portapapeles del SO y el núcleo).
 - Todo lo que decide qué se ve (texto formateado, estilo resuelto, geometría, qué celda está bajo un punto, qué celda queda activa tras una tecla) lo calcula el núcleo y es probable sin ventana.
 - Índices: IronCalc usa **hojas base 0 (`u32`) y filas/columnas base 1 (`i32`)**: `set_user_input(0, 1, 1, …)` escribe en A1 `[VERIFICADO]` en las pruebas de `main` (`base/src/test/user_model/test_language_switch.rs`). El núcleo expone los mismos índices.
 - Dimensiones máximas del motor: 1 048 576 filas × 16 384 columnas; tamaños por defecto 90,0 de ancho y 25,0 de alto `[VERIFICADO]` en `base/src/constants.rs` de `main` (constantes `pub(crate)`; se leen con `get_column_width`/`get_row_height`). Unidad (píxeles lógicos) `[A VERIFICAR EN T006]`.
@@ -245,7 +268,7 @@ Reglas del árbol:
 El tiempo de vida de `UserModel<'a>` viene de las cadenas de configuración (`locale`, `timezone`, `language`) `[VERIFICADO]` (docs.rs). El núcleo usa literales `'static` (`"en"`, `"es"`, `"UTC"`), así que el modelo es `UserModel<'static>`, `Send` y `Sync` `[VERIFICADO]` (lista de «Auto Trait Implementations» de docs.rs).
 
 ```rust
-// crates/poc-core/src/core.rs  (pseudocódigo)
+// crates/dokumentz-sheet/src/core.rs  (pseudocódigo)
 pub enum Lang { Es, En }                       // language_id "es"/"en"; locale_id igual (locales_list.json: en, en-GB, de, es, fr, it)
 
 pub struct OpenOptions { pub lang: Lang, pub tz: &'static str /* "UTC" */ }
@@ -261,7 +284,7 @@ pub struct Core {
     block: Option<CachedBlock>,         // último DrawList codificado y su rango
     edit: Option<EditSession>,
     drawn_cells_last: u32,              // para el invariante FR-003 y la instrumentación
-    rec: Option<Arc<poc_metrics::Recorder>>,   // solo con la característica `metrics`
+    rec: Option<Arc<dokumentz_metrics::Recorder>>,   // solo con la característica `metrics`
 }
 
 impl Core {
@@ -428,13 +451,14 @@ Hechos que ayudan `[VERIFICADO]` en el código de `main`: `UserModel::set_langua
 ### 5.9 Archivos (FR-001, FR-011)
 
 - `open_xlsx` devuelve `CoreError::{NoExiste, SinPermiso, NoEsXlsx(String), …}`; nunca entra en pánico con archivos truncados (prueba con fixtures corruptos en T015). Con `--open` por línea de comandos, un error termina el proceso con código distinto de cero y un mensaje en la salida de error (señal verificable para la automatización; `spec.md` §4).
+- **Lectura de solo lectura para `tools/compat-check` (FR-014).** `compat-check` abre los archivos por el mismo camino que la aplicación (`Core::open_xlsx`, idioma `en`, zona `UTC`) y necesita, sin ventana ni edición: la lista de hojas y su rango usado, el valor **sin formato** y tipado de cada celda (número, texto, booleano, error, vacío), el texto de la fórmula si la hay, y una llamada explícita a la evaluación completa. Esa API vive en `crates/dokumentz-sheet/src/inspect.rs` (`sheet_names`, `used_range`, `cell_raw`, `cell_formula`, `recalculate`) y solo lee. `[A VERIFICAR EN T115]` qué parte la da `UserModel`/`Model` de IronCalc 0.9.1 (`get_cell_content`, `get_cell_type`, `get_formatted_cell_value`; el valor sin formato puede requerir `get_model()`); la comprobación de fondo es que tras abrir y recalcular el valor leído proviene del **recálculo** y no del valor guardado en el archivo.
 - `save_xlsx`: escribe `ruta.tmp-<pid>` y renombra; el nombre propio de Office («Guardar») sobrescribe el archivo abierto; «Guardar como» pide ruta. Aviso de una línea si el archivo traía partes que IronCalc no modela (aclaración 8) `[A VERIFICAR EN T006]`.
 
 ### 5.10 Instrumentación (FR-012) y modo guion
 
-- `poc-metrics::Recorder` está **apagado salvo** `--metrics-out <ruta>` o la variable `POC_METRICS_OUT`. Apagado: no reserva memoria, no abre archivos y no mide. Encendido: escribe un único JSON local al salir o al terminar el guion. No hay dependencias de red (`cargo tree` lo comprueba, T013).
+- `dokumentz-metrics::Recorder` está **apagado salvo** `--metrics-out <ruta>` o la variable `DOKUMENTZ_METRICS_OUT`. Apagado: no reserva memoria, no abre archivos y no mide. Encendido: escribe un único JSON local al salir o al terminar el guion. No hay dependencias de red (`cargo tree` lo comprueba, T013).
 - Mide: marcas (`launch`, `window_ready`, `open_request`, `first_data_frame`), duraciones por tramo (carga, `draw_block`, codificación, IPC en Tauri, pintado), contadores (`cells_in_list`, `cells_drawn_per_frame`, `placeholder_frames`) y muestras por cuadro/tecla.
-- **Modo guion:** `--script <guion.json> [--script-out <resultado.json>] [--exit-after-script]`. El guion es una lista de pasos de `poc-script`: `open`, `key`, `text`, `scroll`, `drag`, `wait_ms`, `wait_idle`, `mark`, `assert_cell`, `assert_selection`, `assert_formula_bar`, `save`, `quit`. Cada interfaz lo ejecuta llamando a **los mismos manejadores** que la entrada real (no al núcleo directamente), así el camino de la interfaz queda cubierto y el mismo guion sirve para CI, para pruebas funcionales y para la instrumentación interna. El resultado (`ScriptResult`) se escribe en JSON y `poc-script-check` lo compara con lo esperado.
+- **Modo guion:** `--script <guion.json> [--script-out <resultado.json>] [--exit-after-script]`. El guion es una lista de pasos de `dokumentz-script`: `open`, `key`, `text`, `scroll`, `drag`, `wait_ms`, `wait_idle`, `mark`, `assert_cell`, `assert_selection`, `assert_formula_bar`, `save`, `quit`. Cada interfaz lo ejecuta llamando a **los mismos manejadores** que la entrada real (no al núcleo directamente), así el camino de la interfaz queda cubierto y el mismo guion sirve para CI, para pruebas funcionales y para la instrumentación interna. El resultado (`ScriptResult`) se escribe en JSON y `dokumentz-script-check` lo compara con lo esperado.
 
 ### 5.11 Concurrencia
 
@@ -539,7 +563,7 @@ El módulo `mod = isMac ? e.metaKey : e.ctrlKey` decide Cmd o Ctrl. La lista se 
 
 ### 6.9 Instrumentación interna
 
-`metrics.ts` registra con `performance.now()`: tiempo de cada `invoke` (ida y vuelta), decodificación, pintado y tiempo entre `requestAnimationFrame` consecutivos durante el desplazamiento. Latencia de tecla = `keydown`/`beforeinput` → siguiente `requestAnimationFrame` posterior al cambio de DOM (aproximación a «presentado»). Todo se envía a Rust con `metrics_flush` y lo escribe `poc-metrics`.
+`metrics.ts` registra con `performance.now()`: tiempo de cada `invoke` (ida y vuelta), decodificación, pintado y tiempo entre `requestAnimationFrame` consecutivos durante el desplazamiento. Latencia de tecla = `keydown`/`beforeinput` → siguiente `requestAnimationFrame` posterior al cambio de DOM (aproximación a «presentado»). Todo se envía a Rust con `metrics_flush` y lo escribe `dokumentz-metrics`.
 
 ---
 
@@ -626,20 +650,21 @@ Las dos apps ofrecen lo mismo; si algo se hace en una y no en la otra, el inform
 | FR-009 | `tabs.ts` | `tabs.rs` | guiones `us3` sobre A3 |
 | FR-010 | plugin de portapapeles | `ClipboardItem` | núcleo (T027) + manual entre apps |
 | FR-011 | `Save`/`SaveAs` | ídem | ida y vuelta (T077) |
-| FR-012 | `metrics.ts` + `poc-metrics` | `metrics.rs` + `poc-metrics` | T013, T056, T061 |
-| FR-013 | — (herramienta `poc-gen`) | — | T038 |
+| FR-012 | `metrics.ts` + `dokumentz-metrics` | `metrics.rs` + `dokumentz-metrics` | T013, T056, T061 |
+| FR-013 | — (herramienta `testdata-gen`) | — | T038 |
+| FR-014 | — (herramienta `compat-check`; no depende de ninguna interfaz) | — | autoprueba con fixtures y corrida sobre A4 (T115, T116) |
 
 
 ---
 
 ## 9. Método de medición
 
-Principios generales en D-11. Aquí se concretan. Las tablas de resultados son **por plataforma**; no se extrapola de una a otra. Los números internos y externos se guardan con `method` distinto y **no se mezclan** al comparar contra ONLYOFFICE.
+Principios generales en D-11. Aquí se concretan. Las tablas de resultados son **por plataforma**; no se extrapola de una a otra. Los números internos y externos se guardan con `method` distinto y **no se mezclan** al comparar contra ONLYOFFICE. M-09 (compatibilidad) no mide tiempo y tiene su propio método (§9.10); sus resultados se guardan con `method: "compat"`.
 
 ### 9.1 Reglas para que sea justo con ONLYOFFICE
 
 1. **Misma máquina, misma pantalla.** Resolución, escala y frecuencia de refresco se registran en cada JSON. Ventana de **1280×720 px lógicos** en la posición (80, 60), colocada por `bench-runner` con la API del SO para las tres apps. Tema claro, zoom 100 %.
-2. **Mismos archivos y operaciones.** A1–A3 de `poc-gen` con la misma semilla (`sha256` en cada resultado); las mismas secuencias de entrada sintética para las tres apps; idioma de fórmulas `es`.
+2. **Mismos archivos y operaciones.** A1–A3 de `testdata-gen` con la misma semilla (`sha256` en cada resultado); las mismas secuencias de entrada sintética para las tres apps; idioma de fórmulas `es`.
 3. **Mismas definiciones** de «ventana usable» y «primera pantalla con datos», basadas en el contenido de la pantalla (§9.3), no en señales internas.
 4. **ONLYOFFICE 10.0.0** en macOS (versión en Windows/Linux: aclaración 3), configuración por defecto. Único ajuste previsto: desactivar la comprobación de actualizaciones para que no genere red ni CPU durante la medición; se declara en el informe. Se abre con la ruta como argumento `[A VERIFICAR EN T084]`.
 5. **Compilaciones `release`** de las PoC con el mismo perfil; nunca `debug`.
@@ -654,7 +679,7 @@ Principios generales en D-11. Aquí se concretan. Las tablas de resultados son *
 | Origen | Cómo | Para qué | Se usa en SC |
 |---|---|---|---|
 | **Externo** (las tres apps) | `bench-runner`: lanza el proceso, coloca la ventana, inyecta entrada del SO, captura pantalla a tasa constante, analiza cuadros, muestrea memoria | Comparar con ONLYOFFICE | **Sí** (SC-001…SC-003) |
-| **Interno** (solo las dos PoC) | `poc-metrics` con `--metrics-out` | Diagnosticar dónde se va el tiempo: carga, `draw_block`, puente, pintado | No para comparar con ONLYOFFICE |
+| **Interno** (solo las dos PoC) | `dokumentz-metrics` con `--metrics-out` | Diagnosticar dónde se va el tiempo: carga, `draw_block`, puente, pintado | No para comparar con ONLYOFFICE |
 | **Verificación cruzada** | PresentMon (Windows), `xctrace` «Animation Hitches» (macOS), MangoHud (Linux, opcional) | Confirmar el orden de magnitud de M-03 con una fuente independiente de la captura | No decide |
 
 ### 9.3 Definición operativa de cada medida (externa)
@@ -712,20 +737,20 @@ La atribución de procesos WebKit en macOS se valida en T089 con una corrida de 
 
 ### 9.7 Formato JSON de resultados (`results/<plataforma>/<run-id>/<medida>-<app>.json`)
 
-Los tipos viven en `poc-metrics::results` y su JSON Schema en `tools/bench-report/schema/results.v1.schema.json` (T039). El mismo esquema lo escriben `bench-runner` (externo) y las PoC con `--metrics-out` (interno).
+Los tipos viven en `dokumentz-metrics::results` y su JSON Schema en `tools/bench-report/schema/results.v1.schema.json` (T039). El mismo esquema lo escriben `bench-runner` (externo) y las PoC con `--metrics-out` (interno).
 
 ```json
 {
-  "schema": "poc-results/1",
+  "schema": "dokumentz-bench/1",
   "run_id": "2026-11-03T10-12-00Z-macos-m1",
   "criteria_sha": "<hash del commit etiquetado criterios-v1>",
-  "method": "external",                       // "external" | "internal"
+  "method": "external",                       // "external" | "internal" | "compat" (M-09, §9.10)
   "env": {
     "os": "macOS 26.6.2", "arch": "arm64", "cpu": "Apple M1", "ram_gb": 16, "gpu": "Apple M1",
     "display": { "width_px": 2560, "height_px": 1600, "scale": 2.0, "refresh_hz": 60.0 },
     "web_engine": "WKWebView (WebKit del sistema)", "vm": false, "power": "ac", "session": "aqua"
   },
-  "app": { "id": "poc-tauri", "version": "0.1.0", "commit": "<git>", "build": "release",
+  "app": { "id": "dokumentz-app-tauri", "version": "0.1.0", "commit": "<git>", "build": "release",
            "lang": "es", "exe_sha256": "<…>" },
   "file": { "id": "A1", "sha256": "<…>", "rows": 100000, "cols": 20 },
   "measure": "M-03", "scenario": "S1-wheel-10s", "cold": false,
@@ -747,13 +772,14 @@ Las medidas de tiempo único (M-01, M-02, M-05, M-07) llevan `value_ms` por repe
 
 1. Entorno (hardware, SO, versión del motor web, frecuencia de refresco, si es VM) y versiones de las tres apps.
 2. Tabla por medida × app: mediana, p95, mínimo/máximo, repeticiones válidas; razón frente a ONLYOFFICE; frío y caliente por separado.
-3. Estado de **SC-001…SC-006**: `cumple` / `no cumple` / `sin datos`, con el dato que lo sustenta (lo no medido nunca cuenta como cumplido).
-4. Aplicación de la **regla de decisión** de `spec.md` §9 en el orden 1→4, con la rama tomada y los datos. Los casos «no cubiertos» (aclaración 9) salen como `NO CUBIERTO: decide el dueño`.
+3. Estado de **SC-001…SC-007**: `cumple` / `no cumple` / `sin datos`, con el dato que lo sustenta (lo no medido nunca cuenta como cumplido). SC-007 sale de `M-09-compat.json` (§9.10) y se muestra también **por fuente**.
+4. Aplicación de la **regla de decisión de interfaz** de `spec.md` §9 en el orden 1→4, con la rama tomada y los datos. Los casos «no cubiertos» (aclaración 9) salen como `NO CUBIERTO: decide el dueño`. SC-007 **no interviene** en esta regla.
+4b. Aplicación de la **regla del motor** de `spec.md` §9 (ramas M1, M2, M3 o `sin datos`) en una sección aparte, con la lista de funciones faltantes o distintas (M-09(d)) y la rama tomada. Las dos reglas se evalúan por separado y se muestran por separado.
 5. «Dónde pierde la PoC» (medidas en que ONLYOFFICE gana) y la nota fija de alcance.
 6. Para Linux con NVIDIA: configuración y variables de entorno aplicadas, de modo que no se confundan con el comportamiento por defecto.
 7. Comparación interna (diagnóstico) en una sección aparte, con la leyenda «no comparable con ONLYOFFICE».
 
-`criteria.toml` contiene SC-001…SC-005 (umbrales, factor 2×, 50 %, 16,7 ms, 30 ms), la lectura de aclaraciones 9 y 10 y la tolerancia de «≥2× en M-03/M-04». Se congela con la etiqueta `criterios-v1` y su hash viaja en cada JSON (`criteria_sha`); cambiarlo después de la primera corrida oficial exige un `criterios-v2` y declararlo en el informe.
+`criteria.toml` contiene SC-001…SC-005 (umbrales, factor 2×, 50 %, 16,7 ms, 30 ms), SC-007 (95 % de archivos sin error y 0 cierres; 98 % de fórmulas coincidentes; 100 % de valores sin fórmula idénticos; umbral 90 % de la regla del motor; tolerancia numérica relativa 1e-9), la lectura de aclaraciones 9 y 10 y la tolerancia de «≥2× en M-03/M-04». SC-006 lo evalúa la CI y no tiene umbral numérico. Se congela con la etiqueta `criterios-v1` y su hash viaja en cada JSON (`criteria_sha`); cambiarlo después de la primera corrida oficial exige un `criterios-v2` y declararlo en el informe.
 
 ### 9.9 Límites conocidos del método
 
@@ -762,6 +788,70 @@ Las medidas de tiempo único (M-01, M-02, M-05, M-07) llevan `value_ms` por repe
 - La rueda sintética no equivale a un trackpad real (inercia). S2 (arrastre de barra) reduce la diferencia de semántica entre apps.
 - La atribución de procesos para M-06 en macOS es por diferencia de PIDs; se valida en T089.
 - Sin hardware Windows/Linux real, esas columnas quedan `sin datos` y la regla de decisión no se puede aplicar completa (R-06).
+- **M-09 (límites del método de compatibilidad, §9.10).** (1) `Application` de `docProps/app.xml` no garantiza que Excel calculara los valores guardados: las bibliotecas que generan `.xlsx` copian «Microsoft Excel» y guardan valores provisionales (hallazgo 4). (2) Un libro de Excel en cálculo manual puede traer valores obsoletos. (3) Las dos cosas se registran en el JSON (`calcPr`). Resuelto por defecto (2026-10-22): `fullCalcOnLoad="1"` o la ausencia total de valores guardados sacan el archivo de (b) como `generador_sospechoso` (§9.10, paso 1); `calcMode="manual"` se informa como «valores guardados posiblemente obsoletos», pero el archivo sigue en (b). (4) El filtro de volátiles no sigue nombres definidos, `INDIRECT` ni `OFFSET`. (5) Excel redondea algunas restas casi nulas a 0 (p. ej. `0,1+0,2−0,3`) y con tolerancia relativa pura saldrían como discrepancias; por eso §9.10 añade un piso absoluto de 1e-12. (6) Un resultado de M-09 describe al motor y a los archivos de A4; no se extrapola a «todos los archivos del mundo».
+
+### 9.10 Compatibilidad con archivos reales (M-09, SC-007)
+
+No mide tiempo: no usa captura, entrada sintética ni repeticiones. Lo ejecuta `tools/compat-check` (FR-014) en local sobre A4, y es **determinista**: una corrida por archivo (se repite solo para comprobar que el resultado no cambia). Razones del método y fuentes: D-17.
+
+**Entradas.** `testdata/a4/manifest.toml` (T114) lista por archivo `id`, `fuente` (`usuario` | `apache-poi` | `libreoffice`), licencia y SHA-256. Los archivos están en `testdata/a4/` y no salen del equipo.
+
+**Procedimiento por archivo.** El supervisor lanza un proceso hijo por archivo con un tiempo máximo (propuesta: 120 s); registra salida normal, error de apertura, tiempo agotado o cierre inesperado (terminación por señal, aborto o pánico no controlado) y sigue con el siguiente. Pasos del hijo:
+
+1. **Productor.** Lee `docProps/app.xml` con el crate `zip` y extrae `<Application>`: `excel` si empieza por «Microsoft Excel»; `libreoffice` si contiene «LibreOffice»; `poi` si contiene «Apache POI»; `otro` si trae otro valor; `desconocido` si no hay `app.xml` o `Application`. Guarda el texto literal. **Segunda señal (resuelta por defecto el 2026-10-22):** un archivo con `Application` «Microsoft Excel» pasa a `generador_sospechoso` si su `calcPr` de `xl/workbook.xml` trae `fullCalcOnLoad="1"` o si ninguna de sus celdas con fórmula trae valor guardado (así lo dejan `rust_xlsxwriter` y XlsxWriter). Solo `excel` entra en (b); `generador_sospechoso` y el resto se informan aparte.
+2. **Referencia independiente.** `calamine` 0.37.0 lee hoja por hoja los valores guardados (`worksheet_range`) y las fórmulas (`worksheet_formula`: texto sin `=`, nombres de función en inglés como en el archivo, a veces con prefijo `_xlfn.`) `[VERIFICADO]` (D-17). Una celda es «con fórmula» si calamine le da fórmula no vacía; las macros no se leen (no se llama a `vba_project`).
+3. **Abrir con el motor.** `Core::open_xlsx` (misma ruta que la aplicación) con idioma `en` y zona `UTC`, de modo que los errores de función desconocida sean `#NAME?` y no `#¿NOMBRE?`. Un error de apertura queda como `opened=false` con el motivo.
+4. **Recalcular.** Llamada explícita a la evaluación completa y lectura del valor resultante (`inspect.rs`, §5.9). `[A VERIFICAR EN T115]` que el valor leído viene del recálculo.
+5. **Comparar celdas con fórmula** (solo `excel`; sin volátiles; con valor guardado):
+
+   | Tipo del valor guardado | Coincide si |
+   |---|---|
+   | Número (las fechas, como número de serie) | `abs(a − b) ≤ 1e-9 · max(abs(a), abs(b))`; 0 contra 0 coincide |
+   | Texto | Igualdad exacta de la cadena |
+   | Booleano | Igualdad exacta |
+   | Error | Mismo tipo de error (`#DIV/0!`, `#N/A`, `#NAME?`, `#NULL!`, `#NUM!`, `#REF!`, `#VALUE!`…) |
+   | Tipos distintos (p. ej. número contra texto) | Nunca coincide: discrepancia de tipo |
+
+   **Piso absoluto (resuelto por defecto el 2026-10-22):** dos números también coinciden si `|a − b| ≤ 1e-12`, para no contar como incompatibles los residuos de coma flotante cerca de cero (Excel muestra 0 en esos casos). Las celdas que coinciden **solo** por el piso se cuentan aparte (`near_zero`) para poder revisarlas.
+6. **Volátiles.** Se excluyen de (b) y se cuentan aparte (`volatile_excluded`) las celdas cuya fórmula contiene `TODAY`, `NOW`, `RAND`, `RANDBETWEEN`, `RANDARRAY`, `CELL` o `INFO` (nombres sin `_xlfn.`), porque su valor depende del reloj, del azar o del entorno y no puede coincidir con el guardado, y las celdas que dependen de ellas (cierre transitivo con un extractor de referencias de celda y de rango, también entre hojas). `OFFSET` e `INDIRECT` son volátiles para el recálculo pero deterministas: **sí** se comparan; sus dependientes por nombre definido o por `INDIRECT`/`OFFSET` no se siguen y, si discrepan, llevan la marca «posible dependiente de volátil».
+7. **Sin valor guardado.** Si el archivo trae la fórmula sin resultado, la celda cuenta en `no_stored_value`, no entra en el denominador de (b) y no es un fallo. `[A VERIFICAR EN T115]` cómo distingue calamine «sin `<v>`» de un resultado de texto vacío.
+8. **Celdas sin fórmula** (todos los productores): el valor leído del motor tras abrir debe ser **idéntico** al de calamine (números por igualdad de `f64`; texto, booleano, error literal y fecha como número de serie por igualdad exacta). Las celdas vacías no cuentan. M-09(c) = idénticas / celdas con valor sin fórmula, en archivos abiertos.
+9. **Funciones faltantes o distintas (d).** Por cada celda que da `#NAME?` o discrepa, extrae los nombres de función de la fórmula guardada y acumula por función: `celdas_afectadas`, `archivos_afectados`, `tipo` (`no_soportada` si el motor devuelve `#NAME?` y su analizador no reconoce el nombre; `resultado_distinto` si calcula pero difiere) y hasta 3 ejemplos (identificador de archivo, hoja, celda). Orden: `celdas_afectadas` descendente, luego `archivos_afectados`, luego nombre. `[A VERIFICAR EN T115]` cómo preguntar al motor si un nombre de función existe.
+10. **Macros: nunca.** El binario no ejecuta VBA ni XLM, no llama a `vba_project` de calamine y no abre ningún archivo con otra aplicación. Los `.xlsm` se abren como cualquier libro (prueba con un `.xlsm` ficticio, T115).
+
+**Métricas y veredicto.**
+- (a) = archivos con `opened=true` y sin cierre / archivos totales; `crashes` = número de cierres inesperados.
+- (b) = celdas coincidentes / celdas comparadas, sumadas sobre archivos `excel`.
+- (c) = celdas sin fórmula idénticas / celdas sin fórmula con valor, en archivos abiertos.
+- Se calculan en total, **por fuente** (usuario / Apache POI / LibreOffice) y **por productor**. SC-007 se evalúa sobre el **total**; el desglose por fuente no cambia el veredicto, pero los archivos del usuario pesan más al interpretarlo (los corpus de POI y LibreOffice incluyen archivos raros o de reportes de errores).
+- `cumple` solo si (a) ≥ 95 % con 0 cierres, (b) ≥ 98 % y (c) = 100 %; `sin datos` si A4 no está preparado o no hay ningún archivo `excel` con fórmulas con valor guardado.
+- Regla del motor (`spec.md` §9), implementada en `bench-report` (T117): **M1** cumple → motor validado; **M2** no cumple y (b) ≥ 90 % → plan de motor con la lista (d) para contribuir a IronCalc y volver a medir antes de la fase 1; **M3** (b) < 90 % → además, evaluar alternativas de motor de fórmulas; sin datos → motor no validado.
+
+**Salida** (`results/<plataforma>/<run-id>/M-09-compat.json` y `compat.md`; mismo esquema `dokumentz-bench/1`, con `method: "compat"` y `measure: "M-09"`; el JSON Schema se amplía en T117):
+
+```json
+{
+  "schema": "dokumentz-bench/1", "run_id": "…", "criteria_sha": "…", "method": "compat", "measure": "M-09",
+  "env": { "os": "macOS 26.6.2", "arch": "arm64", "vm": false },
+  "engine": { "name": "ironcalc", "version": "0.9.1", "dokumentz_sheet_commit": "<git>", "lang": "en", "tz": "UTC" },
+  "reader": { "name": "calamine", "version": "0.37.0" },
+  "tolerance": { "number_rel": 1e-9 },
+  "corpus": { "manifest_sha256": "<…>", "files_total": 0 },
+  "files": [
+    { "id": "<12 hex de SHA-256>", "source": "usuario|apache-poi|libreoffice",
+      "producer": "excel|libreoffice|poi|otro|desconocido", "application": "Microsoft Excel", "calc_pr": { "fullCalcOnLoad": false, "calcMode": "auto" },
+      "opened": true, "error": null, "crash": false, "macros_executed": false,
+      "formula_cells": 0, "compared": 0, "matched": 0, "mismatched": 0, "volatile_excluded": 0, "no_stored_value": 0,
+      "value_cells": 0, "value_identical": 0 }
+  ],
+  "functions": [ { "name": "XLOOKUP", "type": "no_soportada", "cells": 0, "files": 0, "examples": [] } ],
+  "summary": { "total": { "a": 0.0, "crashes": 0, "b": 0.0, "c": 0.0 }, "by_source": {}, "by_producer": {} }
+}
+```
+
+Privacidad (R-14: repositorio público): en los archivos de la fuente `usuario` el JSON versionado no incluye valores de celda, nombres de hoja ni rutas; los ejemplos de función llevan solo identificador de archivo y celda. El detalle celda a celda va a `results/<plataforma>/<run-id>/privado/` (ignorado por git).
+
+**Autoprueba.** `cargo test -p compat-check` con fixtures pequeños generados con `rust_xlsxwriter` + `set_formula_result` (el valor guardado se fija a propósito, p. ej. `=A1+B1` guardado como 7 cuando el motor calcula 5): coincidente, discrepante, error igual y distinto, volátil y su dependiente, sin valor guardado (se reescribe el ZIP para quitar `<v>`), productor Excel (`rust_xlsxwriter` escribe «Microsoft Excel» `[VERIFICADO]`) y no Excel (se reescribe `app.xml`), archivo corrupto, supervisor ante un hijo que aborta, `.xlsm` ficticio, y dos corridas con el mismo JSON.
 
 ---
 
@@ -775,27 +865,28 @@ jobs:
   core:        # SC-006 (núcleo y herramientas)
     strategy: { matrix: { os: [ubuntu-24.04, windows-2025, macos-26] } }
     steps: [checkout, rust 1.99.0 (rust-toolchain.toml), cache,
-            cargo fmt --check (solo Linux), cargo clippy --workspace --exclude poc-tauri --exclude poc-gpui -D warnings,
-            cargo test -p poc-core -p poc-metrics -p poc-script -p poc-gen -p xlsx-diff -p bench-runner -p bench-report,
-            cargo test -p poc-core --test no_ui_deps (solo Linux),  cargo deny check licenses bans sources (solo Linux)]
+            cargo fmt --check (solo Linux), cargo clippy --workspace --exclude dokumentz-app-tauri --exclude dokumentz-app-gpui -D warnings,
+            cargo test -p dokumentz-sheet -p dokumentz-metrics -p dokumentz-script -p testdata-gen -p xlsx-diff -p compat-check -p bench-runner -p bench-report,
+            cargo test -p dokumentz-sheet --test no_ui_deps (solo Linux),  cargo deny check licenses bans sources (solo Linux)]
+  # compat-check (autoprueba con fixtures) corre en el trabajo `core`; la corrida sobre A4 es local y nunca en CI (A4 no sale del equipo)
   roundtrip:   # SC-005 reducido
     strategy: { matrix: { os: [...] } }
-    steps: [poc-gen --scale ci --seed 42, cargo test -p poc-core --test roundtrip, xlsx-diff sobre los A1–A3 reducidos: original vs. guardado]
+    steps: [testdata-gen --scale ci --seed 42, cargo test -p dokumentz-sheet --test roundtrip, xlsx-diff sobre los A1–A3 reducidos: original vs. guardado]
   tauri:
     strategy: { matrix: { os: [...] } }
     steps: [apt (solo Linux): libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev
                               libayatana-appindicator3-dev librsvg2-dev xvfb,          # lista oficial de Tauri [VERIFICADO]
             setup-node 22, npm ci, npm test (Vitest + mockIPC),
-            cargo test -p poc-tauri, cargo build -p poc-tauri --release,
+            cargo test -p dokumentz-app-tauri, cargo build -p dokumentz-app-tauri --release,
             E2E: Linux (xvfb-run + tauri-driver + WebKitWebDriver) y Windows (tauri-driver + msedgedriver); macOS: modo guion,
-            poc-script-check sobre results de los guiones tests/functional/**]
+            dokumentz-script-check sobre results de los guiones tests/functional/**]
   gpui:
     strategy: { matrix: { os: [...] } }
     steps: [apt (solo Linux): lista de script/linux de Zed [VERIFICADO] recortada en T081
                               (gcc g++ libfontconfig-dev libwayland-dev libx11-xcb-dev libxkbcommon-x11-dev libvulkan1
                                libzstd-dev libssl-dev cmake clang lld make ... + xvfb mesa-vulkan-drivers),
-            cargo test -p poc-gpui (característica test-support de gpui, sin GPU),
-            cargo build -p poc-gpui --release,
+            cargo test -p dokumentz-app-gpui (característica test-support de gpui, sin GPU),
+            cargo build -p dokumentz-app-gpui --release,
             humo de ventana con --script (Linux: xvfb + Vulkan por software; continue-on-error hasta demostrar estabilidad)]
   judge-libreoffice:   # opcional, solo Linux: soffice --headless --convert-to csv sobre los archivos guardados  [NO VERIFICADO en esta sesión]
 ```
@@ -830,6 +921,7 @@ Notas:
 | R-15 | **Accesibilidad completa** fuera de la PoC | Cierta | Medio (para fase 1) | Se documenta como riesgo (spec §10). GPUI declara `accesskit` entre sus dependencias `[VERIFICADO]` en su `Cargo.toml`, y un canvas 2D no expone sus celdas a los lectores de pantalla por sí solo `[NO VERIFICADO]`; se evalúa en la fase 1 | T112 |
 | R-16 | **Archivos mucho mayores que A1** y filas > 1 M visibles (aclaración 7) | Baja | Medio | Apertura en hilo con indicador; extensión escalada en Tauri; sin umbral definido | T054, T112 |
 | R-17 | **Editar la verificación del método tras ver resultados** (violaría VIII) | Baja | Alto | `criteria.toml` congelado con etiqueta y `criteria_sha` en cada JSON | T049 |
+| R-18 | **IronCalc no cubre funciones que sí usan los archivos reales**, o las calcula distinto de Excel (su tabla de idiomas lista 497 nombres, pero no se sabe cuántos calculan igual que Excel). Daría SC-007 en rojo y archivos que se abren con valores distintos o `#NAME?` | Media | Alto | Medirlo pronto con `compat-check` (SC-007) sobre A4, no al final; la lista M-09(d) ordenada por frecuencia es la lista de trabajo. Si SC-007 falla: regla del motor (`spec.md` §9): **M2** → plan de motor y **contribuir a IronCalc** (su licencia MIT OR Apache-2.0 lo permite): abrir issues con ejemplos mínimos sintéticos y enviar las funciones faltantes (T118), y volver a medir; **M3** ((b) < 90 %) → además, evaluar alternativas de motor de fórmulas antes de la fase 1. Mientras tanto no se afirma compatibilidad. Riesgo conexo: archivos de bibliotecas que dicen ser de Excel falsean (b) (§9.9) | T115–T118 |
 
 ---
 
@@ -838,15 +930,15 @@ Notas:
 | Fase | Contenido | Tareas | Historias | Compuerta de salida |
 |---|---|---|---|---|
 | 0. Preparación | Repositorio, toolchain, licencias, spikes de IronCalc, GPUI y Tauri, CI mínima | T001–T011 | — | **CP-0** + **CG-1** (carga de IronCalc) + **CG-2** (IPC) |
-| 1. Núcleo (fundacional, bloquea lo demás) | `poc-metrics`, `poc-script`, `poc-core` completo con pruebas sin ventana | T012–T032 | Todas | **CP-1**: `cargo test -p poc-core` verde, `no_ui_deps` verde, dorado `drawlist_v1.bin` congelado |
-| 2. Generador y medición | `poc-gen`, `xlsx-diff`, `bench-runner`, `bench-report`, criterios | T033–T049 | US4 | **CP-2**: A1–A3 reproducibles; `bench-report` prueba todas las ramas de la regla; criterios listos para congelar |
+| 1. Núcleo (fundacional, bloquea lo demás) | `dokumentz-metrics`, `dokumentz-script`, `dokumentz-sheet` completo con pruebas sin ventana | T012–T032 | Todas | **CP-1**: `cargo test -p dokumentz-sheet` verde, `no_ui_deps` verde, dorado `drawlist_v1.bin` congelado |
+| 2. Generador y medición | `testdata-gen`, `xlsx-diff`, `bench-runner`, `bench-report`, criterios (incluidos los umbrales de SC-007) | T033–T049 | US4 | **CP-2**: A1–A3 reproducibles; `bench-report` prueba todas las ramas de la regla; criterios listos para congelar |
 | 3. US1 | Abrir y recorrer: Tauri y GPUI | T050–T063 | US1 | **CP-3**: guiones `us1` pasan en ambas; M-01/M-02/M-03 internas en el Mac |
 | 4. US2 | Editar, fórmulas es/en, IME, deshacer | T064–T072 | US2 | **CP-4**: guiones `us2` pasan; M-04/M-05 internas; guion manual de IME hecho en macOS |
-| 5. US3 | Hojas, copiar/pegar, guardar | T073–T080 | US3 | **CP-5**: ida y vuelta A1–A3 sin diferencias; jueces |
-| 6. US4 | CI completa, medición externa (macOS ahora; Windows y Linux cuando haya hardware), informe | T081–T107 | US4 | **CP-6** (macOS), **CP-7** (consolidado) |
+| 5. US3 y US5 | Hojas, copiar/pegar, guardar; compatibilidad del motor con archivos reales (`compat-check`, A4) | T073–T080, T114, T115–T118 | US3, US5 | **CP-5**: ida y vuelta A1–A3 sin diferencias; jueces; `compat-check` corrido (autoprueba con fixtures y, si A4 está preparado, sobre A4); SC-007 y regla del motor evaluadas o `sin datos` |
+| 6. US4 | CI completa, medición externa (macOS ahora; Windows y Linux cuando haya hardware), informe (SC-001…SC-007; las dos reglas por separado) | T081–T107 | US4 | **CP-6** (macOS), **CP-7** (consolidado) |
 | 7. Cierre | Auditorías (licencias, sin red), decisión, procedencia, actualización de documentos | T108–T113 | US4 | **CP-8**: SC-006 en verde en las tres plataformas; decisión registrada; `/clear` |
 
-Etapas de agente (tamaño acotado, archivos que lee y toca) y puntos de control están en `tasks.md`.
+Etapas de agente (tamaño acotado, archivos que lee y toca) y puntos de control están en `tasks.md`. Las tareas de SC-007 forman la etapa **E33** (T115–T118), entre E25 y CP-5: T115 (`compat-check`) puede empezar en cuanto exista el núcleo (CP-1) y `calamine` esté fijado (T036); T116 (corrida sobre A4) necesita A4 preparado (T114, con el visto bueno del dueño) y los criterios congelados (T049) para ser oficial; sin eso, sus resultados son de desarrollo (`results/dev/`) y SC-007 sigue `sin datos`.
 
 ---
 
@@ -861,7 +953,11 @@ Etapas de agente (tamaño acotado, archivos que lee y toca) y puntos de control 
 | Evaluación completa | `Model::evaluate` «Evaluates every formula in the workbook»; `UserModel::set_user_input` llama a `evaluate_if_not_paused` | https://github.com/ironcalc/IronCalc/blob/main/base/src/evaluation.rs y `base/src/user_model/common.rs` (rama `main`; confirmado también en la etiqueta `v0.9.1` el 2026-10-22) |
 | Idiomas | `set_language` solo cambia el analizador; con `es`, `=TRUE()` da `#¿NOMBRE?`; locales `en, en-GB, de, es, fr, it` | https://github.com/ironcalc/IronCalc/blob/main/base/src/model.rs, `base/src/test/test_language.rs`, `generate_locale/locales_list.json` |
 | Portapapeles | `copy_to_clipboard` usa delimitador tabulador pero `Clipboard.csv` es `pub(crate)`; `paste_csv_string` lee tabulado, una sola lista de cambios | https://github.com/ironcalc/IronCalc/blob/main/base/src/user_model/clipboard.rs |
-| `rust_xlsxwriter` | 0.101.0, MIT OR Apache-2.0; `Formula::new` y `set_result` | https://docs.rs/rust_xlsxwriter/latest/rust_xlsxwriter/ y `…/struct.Formula.html` |
+| `rust_xlsxwriter` | 0.101.0, MIT OR Apache-2.0; `Formula::new` y `set_result`; también existe `Worksheet::set_formula_result`. Por defecto guarda «0» como resultado y marca recalcular al abrir | https://docs.rs/rust_xlsxwriter/latest/rust_xlsxwriter/ , `…/struct.Formula.html` y https://docs.rs/rust_xlsxwriter/0.101.0/rust_xlsxwriter/worksheet/struct.Worksheet.html |
+| `calamine` 0.37.0 | MIT, publicada el 2026-10-18; `XlsxCellFormula.value` = «Literal or cached value associated with the cell» y `formula` = texto expandido; `Data::{Int, Float, String, Bool, DateTime, DateTimeIso, DurationIso, Error, Empty}`. Prueba local (calamine 0.37.0 + rust_xlsxwriter 0.101.0): un valor guardado forzado a 7 en `=A1+B1` (real 5) se leyó como `Float(7.0)` con `worksheet_range` y la fórmula como `A1+B1` con `worksheet_formula` | https://crates.io/api/v1/crates/calamine , https://docs.rs/calamine/0.37.0/calamine/struct.XlsxCellFormula.html , `…/struct.XlsxCellReader.html` , `…/enum.Data.html` , https://raw.githubusercontent.com/tafia/calamine/master/src/xlsx/cells_reader.rs |
+| Licencia de IronCalc | 0.9.1 (publicada el 2026-10-21): MIT OR Apache-2.0 en crates.io; `LICENSE-MIT` («Copyright 2023 EqualTo GmbH») y `LICENSE-Apache-2.0` presentes en el repositorio | https://crates.io/api/v1/crates/ironcalc , https://raw.githubusercontent.com/ironcalc/IronCalc/main/LICENSE-MIT , `…/LICENSE-Apache-2.0` |
+| Productor del archivo | `rust_xlsxwriter` 0.101.0 escribe `<Application>Microsoft Excel</Application>`, `AppVersion` 12.0000 y `calcPr fullCalcOnLoad="1"` (archivo generado y abierto localmente); XlsxWriter (Python) escribe la misma cadena y `AppVersion` 12.0000. Apache POI define `DOCUMENT_CREATOR = "Apache POI"` (no se comprobó que sea lo que escribe en `Application`) | Prueba local; https://raw.githubusercontent.com/jmcnamara/XlsxWriter/main/xlsxwriter/app.py ; https://raw.githubusercontent.com/apache/poi/trunk/poi-ooxml/src/main/java/org/apache/poi/ooxml/POIXMLDocument.java |
+| Funciones volátiles de Excel | NOW, TODAY, RAND, RANDARRAY, RANDBETWEEN, OFFSET, INDIRECT; CELL e INFO según sus argumentos (fuente secundaria; no se halló la página de Microsoft) | https://exceljet.net/glossary/volatile-function |
 | GPUI: elemento propio e IME | `Element` (`request_layout`, `prepaint`, `paint`), `EntityInputHandler` (11 métodos), `ElementInputHandler`, `window.handle_input`, `shape_line`, `ShapedLine::paint`, `paint_quad`, acciones y `KeyBinding`, portapapeles | https://github.com/zed-industries/zed/blob/main/crates/gpui/examples/input.rs |
 | GPUI: ejemplos | `input.rs`, `text.rs`, `text_layout.rs`, `uniform_list.rs`, `scrollable.rs`, `data_table.rs`, `painting.rs`… | https://github.com/zed-industries/zed/tree/main/crates/gpui/examples |
 | GPUI: API | `on_scroll_wheel`, `ScrollDelta::{Pixels, Lines}` + `pixel_delta`, `on_mouse_*`, `with_content_mask`, `refresh_interval`, `request_animation_frame`, `prompt_for_paths`, `prompt_for_new_path`, `read_from_clipboard`, `write_to_clipboard` | https://github.com/zed-industries/zed/blob/main/crates/gpui/src/{window.rs,app.rs,interactive.rs,elements/div.rs} |
@@ -879,4 +975,4 @@ Etapas de agente (tamaño acotado, archivos que lee y toca) y puntos de control 
 | MangoHud | Opciones de registro `output_folder`, `log_duration`, `autostart_log`, `log_interval` | Resultados de búsqueda que citan el README (git.blob42.xyz/Archives/MangoHud y otros espejos); **no** se leyó el repositorio oficial |
 | Locales (este Mac) | `x2t` 10.0.0.169 presente y con uso `x2t in out`; plantillas de `xctrace`; `footprint` con `-a`, `-j`; ONLYOFFICE con `editors_helper`, `editors_helper (GPU)`, `editors_helper (Renderer)`; pantalla 2560×1600 Retina; hay procesos `com.apple.WebKit.*` de otras apps | Comandos ejecutados en el Mac del usuario |
 
-**No se pudo verificar** (queda como `[NO VERIFICADO]` o `[A VERIFICAR EN Txxx]`): comportamiento de IronCalc **0.9.1** frente a `main` en idiomas y portapapeles (la evaluación completa sí quedó confirmada en 0.9.1); unidad y base de los tamaños de fila/columna; formato del argumento de `on_expand_selected_range`; campos de `SelectedView`; API de Apple (ScreenCaptureKit; la página no cargó); `purge`, RAMMap, `drop_caches`; permisos TCC de macOS; UIPI de Windows; XTest en Wayland; atribución de procesos de memoria en las tres plataformas; límites de altura de elemento por motor; orden de eventos de composición en Safari/WebView2/WebKitGTK; calidad del IME de GPUI en Windows y Linux; requisitos de compilación de GPUI en Windows; cómo ONLYOFFICE abre un archivo recibido como argumento y su ruta de instalación en Windows y Linux. (Ctrl+U como edición en Excel para Mac quedó confirmado: https://exceljet.net/shortcuts/edit-the-active-cell .) Las fuentes de contexto (ONLYOFFICE, Zed, WebKit, testimonios) están en `research.md`.
+**No se pudo verificar** (queda como `[NO VERIFICADO]` o `[A VERIFICAR EN Txxx]`): el valor exacto que escriben Apache POI y LibreOffice en `Application`; si todo archivo de A4 trae `docProps/app.xml`; cómo distingue `calamine` una fórmula sin resultado guardado de un resultado de texto vacío y cómo devuelve el número de serie de una fecha; qué parte del valor sin formato y de la lista de funciones reconocidas expone IronCalc 0.9.1 (T115); la licencia de `zip`; comportamiento de IronCalc **0.9.1** frente a `main` en idiomas y portapapeles (la evaluación completa sí quedó confirmada en 0.9.1); unidad y base de los tamaños de fila/columna; formato del argumento de `on_expand_selected_range`; campos de `SelectedView`; API de Apple (ScreenCaptureKit; la página no cargó); `purge`, RAMMap, `drop_caches`; permisos TCC de macOS; UIPI de Windows; XTest en Wayland; atribución de procesos de memoria en las tres plataformas; límites de altura de elemento por motor; orden de eventos de composición en Safari/WebView2/WebKitGTK; calidad del IME de GPUI en Windows y Linux; requisitos de compilación de GPUI en Windows; cómo ONLYOFFICE abre un archivo recibido como argumento y su ruta de instalación en Windows y Linux. (Ctrl+U como edición en Excel para Mac quedó confirmado: https://exceljet.net/shortcuts/edit-the-active-cell .) Las fuentes de contexto (ONLYOFFICE, Zed, WebKit, testimonios) están en `research.md`.
